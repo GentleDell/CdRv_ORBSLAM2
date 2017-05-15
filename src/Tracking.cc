@@ -423,8 +423,8 @@ void Tracking::Track()
         // 跟踪状态良好的话, 考虑插入 keyframe
         if(bOK)
         {
-            // Update motion model
-            if(!mLastFrame.mTcw.empty())
+            // 更新运动模型
+            if(!mLastFrame.mTcw.empty())    // 如果上一帧求得了位姿
             {
                 cv::Mat LastTwc = cv::Mat::eye(4,4,CV_32F);
                 mLastFrame.GetRotationInverse().copyTo(LastTwc.rowRange(0,3).colRange(0,3));
@@ -432,33 +432,33 @@ void Tracking::Track()
                 mVelocity = mCurrentFrame.mTcw*LastTwc;
             }
             else
-                mVelocity = cv::Mat();
+                mVelocity = cv::Mat();  // 否则为空
 
-            mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
+            mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);      // 直接将输入pose拷贝到mCameraPose
 
-            // Clean VO matches
-            for(int i=0; i<mCurrentFrame.N; i++)
+            // 清除 VO 匹配
+            for(int i=0; i<mCurrentFrame.N; i++)    // 对每一个 CurrentFrame的 Key point
             {
-                MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
-                if(pMP)
-                    if(pMP->Observations()<1)
+                MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];      // 取出对应到该 Keypoint的 Mappoint
+                if(pMP)     // 如果有对应的Map point
+                    if(pMP->Observations()<1)       // 如果Obs<1
                     {
-                        mCurrentFrame.mvbOutlier[i] = false;
-                        mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
+                        mCurrentFrame.mvbOutlier[i] = false;    // 是Outlier
+                        mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);     // 赋空指针
                     }
             }
 
-            // Delete temporal MapPoints
+            // 删除临时MapPoints.   Delete temporal MapPoints
             for(list<MapPoint*>::iterator lit = mlpTemporalPoints.begin(), lend =  mlpTemporalPoints.end(); lit!=lend; lit++)
             {
-                MapPoint* pMP = *lit;
+                MapPoint* pMP = *lit;       // 这个操作是干什么？为什么不直接.clear
                 delete pMP;
             }
             mlpTemporalPoints.clear();
 
-            // Check if we need to insert a new keyframe
+            // 检查是否需要插入关键帧
             if(NeedNewKeyFrame())
-                CreateNewKeyFrame();
+                CreateNewKeyFrame();    // 需要的话生成关键帧
 
             // We allow points with high innovation (considererd outliers by the Huber Function)
             // pass to the new keyframe, so that bundle adjustment will finally decide
@@ -980,68 +980,72 @@ bool Tracking::TrackLocalMap()
 
 bool Tracking::NeedNewKeyFrame()
 {
-    if(mbOnlyTracking)
+    if(mbOnlyTracking)      // 没有开建图，就不插入
         return false;
 
-    // If Local Mapping is freezed by a Loop Closure do not insert keyframes
+    // 如果 Local Mapping被 Loop Closure冻结 不插关键帧
     if(mpLocalMapper->isStopped() || mpLocalMapper->stopRequested())
         return false;
 
-    const int nKFs = mpMap->KeyFramesInMap();
+    const int nKFs = mpMap->KeyFramesInMap();       // 返回 mspKeyFrames.size()
 
-    // Do not insert keyframes if not enough frames have passed from last relocalisation
-    if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && nKFs>mMaxFrames)
+    // 如果距离最近一次 relocalization还没有过去足够的帧数就不插入 keyframes
+    if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && nKFs>mMaxFrames)     // mMaxFrames就是相机帧率 但后一条是？？
         return false;
 
-    // Tracked MapPoints in the reference keyframe
+    // 在 reference keyframe跟踪Map point
     int nMinObs = 3;
     if(nKFs<=2)
         nMinObs=2;
-    int nRefMatches = mpReferenceKF->TrackedMapPoints(nMinObs);
+    int nRefMatches = mpReferenceKF->TrackedMapPoints(nMinObs);     // 得到Ref Keyframe中至少能被 nMinObs个关键帧看到的 Map points个数
 
-    // Local Mapping accept keyframes?
+    // Local Mapping 是否接受 keyframes？——查看Local Mapper 是否空闲
     bool bLocalMappingIdle = mpLocalMapper->AcceptKeyFrames();
 
-    // Check how many "close" points are being tracked and how many could be potentially created.
+    // 检查 "close" points被 track到和没被 track到的数量 how many could be potentially created.
     int nNonTrackedClose = 0;
     int nTrackedClose= 0;
-    if(mSensor!=System::MONOCULAR)
+    if(mSensor!=System::MONOCULAR)      // 如果不是单目
     {
-        for(int i =0; i<mCurrentFrame.N; i++)
+        for(int i =0; i<mCurrentFrame.N; i++)       // 对每一个关键帧的Key poinit
         {
-            if(mCurrentFrame.mvDepth[i]>0 && mCurrentFrame.mvDepth[i]<mThDepth)
+            if(mCurrentFrame.mvDepth[i]>0 && mCurrentFrame.mvDepth[i]<mThDepth)     // 如果是“close” 点
             {
-                if(mCurrentFrame.mvpMapPoints[i] && !mCurrentFrame.mvbOutlier[i])
-                    nTrackedClose++;
+                if(mCurrentFrame.mvpMapPoints[i] && !mCurrentFrame.mvbOutlier[i])       // 该点被关联到 Map point且不是异常的关联
+                    nTrackedClose++;        // 跟踪点计数器+1
                 else
-                    nNonTrackedClose++;
+                    nNonTrackedClose++; // 未跟踪点计数器+1
             }
         }
     }
 
-    bool bNeedToInsertClose = (nTrackedClose<100) && (nNonTrackedClose>70);
+    bool bNeedToInsertClose = (nTrackedClose<100) && (nNonTrackedClose>70);     // 跟上的点少于100个 且未跟上的大于70个
 
     // Thresholds
-    float thRefRatio = 0.75f;
-    if(nKFs<2)
+    float thRefRatio = 0.75f;   // 强制为float ?
+    if(nKFs<2)      // 如果地图的关键帧少于2个
         thRefRatio = 0.4f;
 
     if(mSensor==System::MONOCULAR)
         thRefRatio = 0.9f;
 
-    // Condition 1a: More than "MaxFrames" have passed from last keyframe insertion
+    // Condition 1a: More than "MaxFrames" have passed from last keyframe insertion；文中条件1的意思
     const bool c1a = mCurrentFrame.mnId>=mnLastKeyFrameId+mMaxFrames;
-    // Condition 1b: More than "MinFrames" have passed and Local Mapping is idle
-    const bool c1b = (mCurrentFrame.mnId>=mnLastKeyFrameId+mMinFrames && bLocalMappingIdle);
-    //Condition 1c: tracking is weak
+
+    // Condition 1b: More than "MinFrames" have passed and Local Mapping is idle； 文中条件2的意思
+    const bool c1b = (mCurrentFrame.mnId>=mnLastKeyFrameId+mMinFrames && bLocalMappingIdle);        // mMinFrames = 0，意为只要idle就可以插
+
+    //Condition 1c: tracking is weak； 非单目且跟踪效果很堪忧——（Inliers少于Ref KeyFrame的1/4，跟上的点少于100个 且未跟上的大于70个）
     const bool c1c =  mSensor!=System::MONOCULAR && (mnMatchesInliers<nRefMatches*0.25 || bNeedToInsertClose) ;
+
     // Condition 2: Few tracked points compared to reference keyframe. Lots of visual odometry compared to map matches.
+    // 前半部分和上一个条件相似，是文中条件4的意思（改成了75%）加上或者跟踪效果堪忧，同时要求当前的匹配大于15点（文章中50点）
     const bool c2 = ((mnMatchesInliers<nRefMatches*thRefRatio|| bNeedToInsertClose) && mnMatchesInliers>15);
 
     if((c1a||c1b||c1c)&&c2)
     {
         // If the mapping accepts keyframes, insert keyframe.
-        // Otherwise send a signal to interrupt BA
+        // Otherwise send a signal to interrupt BA  与文中叙述一致
         if(bLocalMappingIdle)
         {
             return true;
@@ -1051,13 +1055,13 @@ bool Tracking::NeedNewKeyFrame()
             mpLocalMapper->InterruptBA();
             if(mSensor!=System::MONOCULAR)
             {
-                if(mpLocalMapper->KeyframesInQueue()<3)
+                if(mpLocalMapper->KeyframesInQueue()<3)     // 返回mlNewKeyFrames.size()  已插入的关键帧的数量，如果少于3则赶紧插入
                     return true;
                 else
                     return false;
             }
             else
-                return false;
+                return false;       // 是单目就不插入关键帧
         }
     }
     else
@@ -1066,7 +1070,7 @@ bool Tracking::NeedNewKeyFrame()
 
 void Tracking::CreateNewKeyFrame()
 {
-    if(!mpLocalMapper->SetNotStop(true))
+    if(!mpLocalMapper->SetNotStop(true))    // 设置mbNotStop = true 失败(因为mbStopped = true 表示已经停止了)
         return;
 
     KeyFrame* pKF = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB);
@@ -1076,25 +1080,25 @@ void Tracking::CreateNewKeyFrame()
 
     if(mSensor!=System::MONOCULAR)
     {
-        mCurrentFrame.UpdatePoseMatrices();
+        mCurrentFrame.UpdatePoseMatrices(); // 更新当前帧位姿矩阵
 
-        // We sort points by the measured depth by the stereo/RGBD sensor.
-        // We create all those MapPoints whose depth < mThDepth.
-        // If there are less than 100 close points we create the 100 closest.
+        // 按点的深度对点进行排序.
+        // 将那些深度小于 mThDepth的Mappoint 加入.
+        // close点少于100个则取最近的100个点
         vector<pair<float,int> > vDepthIdx;
-        vDepthIdx.reserve(mCurrentFrame.N);
+        vDepthIdx.reserve(mCurrentFrame.N);     // 开辟与 CurrentFrame的 Keypoint数量相同的空间
         for(int i=0; i<mCurrentFrame.N; i++)
         {
             float z = mCurrentFrame.mvDepth[i];
-            if(z>0)
+            if(z>0)     // 深度有效
             {
                 vDepthIdx.push_back(make_pair(z,i));
             }
         }
 
-        if(!vDepthIdx.empty())
+        if(!vDepthIdx.empty())      // 只要不是没有有效深度
         {
-            sort(vDepthIdx.begin(),vDepthIdx.end());
+            sort(vDepthIdx.begin(),vDepthIdx.end());    // 按深度排序
 
             int nPoints = 0;
             for(size_t j=0; j<vDepthIdx.size();j++)
@@ -1103,16 +1107,16 @@ void Tracking::CreateNewKeyFrame()
 
                 bool bCreateNew = false;
 
-                MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
-                if(!pMP)
-                    bCreateNew = true;
-                else if(pMP->Observations()<1)
+                MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];  // 对应第i个Keypoint的Mappoint
+                if(!pMP)        // 该Key point没有对应的Map point
+                    bCreateNew = true;      // 那就创建一个
+                else if(pMP->Observations()<1)      // 或者该Key point被看到的帧数为0    ？
                 {
                     bCreateNew = true;
-                    mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint*>(NULL);
+                    mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint*>(NULL);       // 将Mappoint 置NULL
                 }
 
-                if(bCreateNew)
+                if(bCreateNew)      // 决定要新建点
                 {
                     cv::Mat x3D = mCurrentFrame.UnprojectStereo(i);
                     MapPoint* pNewMP = new MapPoint(x3D,pKF,mpMap);

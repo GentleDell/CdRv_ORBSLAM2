@@ -619,7 +619,7 @@ bool LocalMapping::SetNotStop(bool flag)
     if(flag && mbStopped)
         return false;
 
-    mbNotStop = flag;
+    mbNotStop = flag;   // local mapping状态 没有停止？
 
     return true;
 }
@@ -743,12 +743,12 @@ bool LocalMapping::CheckFinish()
     return mbFinishRequested;
 }
 
-void LocalMapping::SetFinish()
+void LocalMapping::SetFinish()      // LocalMapping 结束后调用
 {
     unique_lock<mutex> lock(mMutexFinish);
-    mbFinished = true;    
+    mbFinished = true;           // LocalMapping 结束后为true
     unique_lock<mutex> lock2(mMutexStop);
-    mbStopped = true;
+    mbStopped = true;        // LocalMapping 结束后为true
 }
 
 bool LocalMapping::isFinished()

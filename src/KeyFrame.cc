@@ -247,7 +247,7 @@ set<MapPoint*> KeyFrame::GetMapPoints()
     return s;
 }
 
-int KeyFrame::TrackedMapPoints(const int &minObs)   //返回关键帧中自身可被观测的关键帧数目大于minObs的三维点数目
+int KeyFrame::TrackedMapPoints(const int &minObs)   //返回满足条件的三维点的数目, 条件是： 这些三维点可被大于minObs的关键帧观测到
 {
     unique_lock<mutex> lock(mMutexFeatures);
 
