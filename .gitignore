@@ -1,0 +1,20 @@
+# My configurations:
+cmake_modules/
+lib/
+Thirdparty/
+Vocabulary/
+Examples/
+build/
+CMakeLists.txt
+CMakeLists.txt.user
+CameraTrajectory.txt
+Dependencies.md
+LICENSE.txt
+License-gpl.txt
+README.md
+README.md~
+build.sh
+build.sh~
+build_ros.sh
+
+
