@@ -460,14 +460,14 @@ void Tracking::Track()
             if(NeedNewKeyFrame())
                 CreateNewKeyFrame();    // 需要的话生成关键帧
 
-            // We allow points with high innovation (considererd outliers by the Huber Function)
-            // pass to the new keyframe, so that bundle adjustment will finally decide
-            // if they are outliers or not. We don't want next frame to estimate its position
+            // We allow points with high innovation (considererd outliers by the Huber Function)    即便根據Huber Function是outlier 的點我們也加入到新KeyFrame中
+            // pass to the new keyframe, so that bundle adjustment will finally decide              讓BA決定它們到底是不是outlier。但位姿估計中不使用這些點，因此在本幀
+            // if they are outliers or not. We don't want next frame to estimate its position       中忽略
             // with those points so we discard them in the frame.
             for(int i=0; i<mCurrentFrame.N;i++)
             {
-                if(mCurrentFrame.mvpMapPoints[i] && mCurrentFrame.mvbOutlier[i])
-                    mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
+                if(mCurrentFrame.mvpMapPoints[i] && mCurrentFrame.mvbOutlier[i])    // mvpMapPoints是更新過的
+                    mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);     // CurrentFrame中不使用Outlier
             }
         }
 
@@ -483,9 +483,9 @@ void Tracking::Track()
         }
 
         if(!mCurrentFrame.mpReferenceKF)    // 当前帧的参考关键帧为空
-            mCurrentFrame.mpReferenceKF = mpReferenceKF;
+            mCurrentFrame.mpReferenceKF = mpReferenceKF;    // 賦好對應到Ref KeyFrame
 
-        mLastFrame = Frame(mCurrentFrame);  // 将当前帧复制到mLastFrame中？
+        mLastFrame = Frame(mCurrentFrame);  // 将当前帧复制到mLastFrame中——當前幀終於也成爲了歷史
     }
 
     // Store frame pose information to retrieve the complete camera trajectory afterwards.
@@ -495,7 +495,7 @@ void Tracking::Track()
         mlRelativeFramePoses.push_back(Tcr);
         mlpReferences.push_back(mpReferenceKF);
         mlFrameTimes.push_back(mCurrentFrame.mTimeStamp);
-        mlbLost.push_back(mState==LOST);        // 为什么是LOST？
+        mlbLost.push_back(mState==LOST);        // 为什么和下面一樣是LOST？
     }
     else
     {
@@ -1073,7 +1073,7 @@ void Tracking::CreateNewKeyFrame()
     if(!mpLocalMapper->SetNotStop(true))    // 设置mbNotStop = true 失败(因为mbStopped = true 表示已经停止了)
         return;
 
-    KeyFrame* pKF = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB);
+    KeyFrame* pKF = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB); // 生成新的KeyFrame
 
     mpReferenceKF = pKF;
     mCurrentFrame.mpReferenceKF = pKF;
@@ -1118,15 +1118,15 @@ void Tracking::CreateNewKeyFrame()
 
                 if(bCreateNew)      // 决定要新建点
                 {
-                    cv::Mat x3D = mCurrentFrame.UnprojectStereo(i);
-                    MapPoint* pNewMP = new MapPoint(x3D,pKF,mpMap);
-                    pNewMP->AddObservation(pKF,i);
-                    pKF->AddMapPoint(pNewMP,i);
-                    pNewMP->ComputeDistinctiveDescriptors();
-                    pNewMP->UpdateNormalAndDepth();
-                    mpMap->AddMapPoint(pNewMP);
+                    cv::Mat x3D = mCurrentFrame.UnprojectStereo(i);     // 將 Keypoint映射到3D空間中
+                    MapPoint* pNewMP = new MapPoint(x3D,pKF,mpMap);     // 生成並初始化Mappoint的實例，包含了該點所屬的關鍵幀，被看到的幀數nObs等許多屬性
+                    pNewMP->AddObservation(pKF,i);      // 建立新建Mappoint與pKF 和第i 個Keypoint的對應關系
+                    pKF->AddMapPoint(pNewMP,i);         // 建立KeyFrame 與新建Mappoint 和 Keypoint 的對應關系 —— mvpMapPoints[i] = pNewMP, 觀察到第i個Keypoint的Mappoint是pNewMP
+                    pNewMP->ComputeDistinctiveDescriptors();    // 找到該點和其他描述子的最小中值距離 ？
+                    pNewMP->UpdateNormalAndDepth();     // 更新 ？
+                    mpMap->AddMapPoint(pNewMP);         // 添加pNewMP 到本map 的mspMapPoints 中
 
-                    mCurrentFrame.mvpMapPoints[i]=pNewMP;
+                    mCurrentFrame.mvpMapPoints[i]=pNewMP;   // 當前幀第i個Mappoint 是pNewMP
                     nPoints++;
                 }
                 else
@@ -1134,17 +1134,17 @@ void Tracking::CreateNewKeyFrame()
                     nPoints++;
                 }
 
-                if(vDepthIdx[j].first>mThDepth && nPoints>100)
+                if(vDepthIdx[j].first>mThDepth && nPoints>100)  // 若該點的深度大門限且已經對超過100個點進行判決，則停止
                     break;
             }
         }
     }
 
-    mpLocalMapper->InsertKeyFrame(pKF);
+    mpLocalMapper->InsertKeyFrame(pKF);     // 將pKF插入KeyFrame
 
-    mpLocalMapper->SetNotStop(false);
+    mpLocalMapper->SetNotStop(false);       // 表示建圖未完成
 
-    mnLastKeyFrameId = mCurrentFrame.mnId;
+    mnLastKeyFrameId = mCurrentFrame.mnId;  // 將CurrentFrame 置爲最近一幀關鍵幀，id也同步
     mpLastKeyFrame = pKF;
 }
 
