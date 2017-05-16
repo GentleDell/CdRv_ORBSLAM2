@@ -33,7 +33,7 @@ namespace ORB_SLAM2
 KeyFrameDatabase::KeyFrameDatabase (const ORBVocabulary &voc):
     mpVoc(&voc)
 {
-    mvInvertedFile.resize(voc.size());
+    mvInvertedFile.resize(voc.size());      // 根據詞匯表大小設置逆向索引的大小
 }
 
 

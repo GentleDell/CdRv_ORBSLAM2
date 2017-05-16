@@ -47,23 +47,23 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), mbVO(false), mpORBVocabulary(pVoc),
     mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), mpViewer(NULL),
     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpMap(pMap), mnLastRelocFrameId(0)
-{
-    // Load camera parameters from settings file
+{   // 上方初始化一些系統狀態量，功能標志，指針等
+    // 導入相機參數
 
-    cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
+    cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);   // 当保存浮点数据或XML/YML文件;   XML和YAML可以嵌套的两种集合类型：映射（mappings）、序列（sequences）
     float fx = fSettings["Camera.fx"];
     float fy = fSettings["Camera.fy"];
     float cx = fSettings["Camera.cx"];
     float cy = fSettings["Camera.cy"];
 
-    cv::Mat K = cv::Mat::eye(3,3,CV_32F);
+    cv::Mat K = cv::Mat::eye(3,3,CV_32F);   // 內參矩陣
     K.at<float>(0,0) = fx;
     K.at<float>(1,1) = fy;
     K.at<float>(0,2) = cx;
     K.at<float>(1,2) = cy;
     K.copyTo(mK);
 
-    cv::Mat DistCoef(4,1,CV_32F);
+    cv::Mat DistCoef(4,1,CV_32F);   // 校準矩陣
     DistCoef.at<float>(0) = fSettings["Camera.k1"];
     DistCoef.at<float>(1) = fSettings["Camera.k2"];
     DistCoef.at<float>(2) = fSettings["Camera.p1"];
@@ -78,11 +78,11 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
 
     mbf = fSettings["Camera.bf"];
 
-    float fps = fSettings["Camera.fps"];
+    float fps = fSettings["Camera.fps"];    // 對於00-02: fps = 10
     if(fps==0)
         fps=30;
 
-    // Max/Min Frames to insert keyframes and to check relocalisation
+    // 用於檢查是否進行重定位以及是否插入關鍵幀的參數Max/Min Frames
     mMinFrames = 0;
     mMaxFrames = fps;
 
@@ -100,7 +100,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     cout << "- fps: " << fps << endl;
 
 
-    int nRGB = fSettings["Camera.RGB"];
+    int nRGB = fSettings["Camera.RGB"]; // RGB通道順序
     mbRGB = nRGB;
 
     if(mbRGB)
@@ -108,7 +108,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     else
         cout << "- color order: BGR (ignored if grayscale)" << endl;
 
-    // Load ORB parameters
+    // 讀入ORB的參數用於各自的初始化
 
     int nFeatures = fSettings["ORBextractor.nFeatures"];
     float fScaleFactor = fSettings["ORBextractor.scaleFactor"];
@@ -133,7 +133,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
 
     if(sensor==System::STEREO || sensor==System::RGBD)
     {
-        mThDepth = mbf*(float)fSettings["ThDepth"]/fx;
+        mThDepth = mbf*(float)fSettings["ThDepth"]/fx;      // 遠近點門限
         cout << endl << "Depth Threshold (Close/Far Points): " << mThDepth << endl;
     }
 
@@ -171,7 +171,7 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
     // 彩色图转灰度图
     if(mImGray.channels()==3)
     {
-        if(mbRGB)   // 通道顺序RGB
+        if(mbRGB)   // 確定通道顺序RGB
         {
             cvtColor(mImGray,mImGray,CV_RGB2GRAY);
             cvtColor(imGrayRight,imGrayRight,CV_RGB2GRAY);
@@ -195,8 +195,8 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
             cvtColor(imGrayRight,imGrayRight,CV_BGRA2GRAY);
         }
     }
-    // 传入双目灰度图，时间戳，双目ORB描述子，ORB词汇表，校准矩阵？，以及用于判断点所处距离“远近”的门限
-    // 得到当前帧在Frame类下的所有数据
+    // 向Frame構造函數传入双目灰度图，时间戳，双目ORB描述子，ORB词汇表，內參，校准矩阵，以及用于判断点所处距离“远近”的门限等
+    // 生成當前幀的Frame 類實例
     mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
     Track();
@@ -267,29 +267,29 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
 
 void Tracking::Track()
 {
-    if(mState==NO_IMAGES_YET)
+    if(mState==NO_IMAGES_YET)   // 更新系統跟蹤狀態
     {
         mState = NOT_INITIALIZED;
     }
 
-    mLastProcessedState=mState;     // 上一帧状态的更新
+    mLastProcessedState=mState;     // 將此前跟蹤狀態計爲上一時刻跟蹤狀態，新的時刻到了
 
-    // Get Map Mutex -> Map cannot be changed   停止地图更新
+    // Get Map Mutex -> Map cannot be changed   停止地图更新？
     unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
 
-    if(mState==NOT_INITIALIZED)         // 未初始化则进行初始化，成功初始化后mState=OK
+    if(mState==NOT_INITIALIZED)         // track未初始化则进行初始化，成功初始化后 mState=OK
     {
         if(mSensor==System::STEREO || mSensor==System::RGBD)
             StereoInitialization();
         else
             MonocularInitialization();
 
-        mpFrameDrawer->Update(this);    // 绘图？
+        mpFrameDrawer->Update(this);    // 完成初始化後，將當前時刻狀態绘图 然後置 mState = OK
 
-        if(mState!=OK)  // 初始化失败？
+        if(mState!=OK)  // 如果初始化還是失敗就返回
             return;
     }
-    else
+    else    // 若已經完成初始化 只有OK和LOST
     {
         // 系统已经初始化. 可以Track Frame.
         bool bOK;

@@ -61,8 +61,8 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     //Load ORB Vocabulary
     cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
-    mpVocabulary = new ORBVocabulary();
-    bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile); // 读入词典，生成词汇树？
+    mpVocabulary = new ORBVocabulary();     // 读入词典，生成词汇树 ?
+    bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
     if(!bVocLoad)
     {
         cerr << "Wrong path to vocabulary. " << endl;
@@ -72,17 +72,17 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     cout << "Vocabulary loaded!" << endl << endl;
 
     //Create KeyFrame Database
-    mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
+    mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);   // 生成詞匯逆向索引 KeyFrame的 list
 
     //Create the Map
-    mpMap = new Map();
+    mpMap = new Map();  // 實例化使用的地圖
 
-    //Create Drawers. These are used by the Viewer
+    //Create Drawers. These are used by the Viewer  // 生成兩個交互框，顯示視頻幀和地圖構建結果
     mpFrameDrawer = new FrameDrawer(mpMap);
     mpMapDrawer = new MapDrawer(mpMap, strSettingsFile);
 
-    //Initialize the Tracking thread
-    //(it will live in the main thread of execution, the one that called this constructor)
+    // 初始化Tracking 線程
+    //(依附於主線程運行, the one that called this constructor)
     mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
                              mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor);
 
@@ -102,7 +102,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         mpTracker->SetViewer(mpViewer);
     }
 
-    //Set pointers between threads
+    //設置線程間的引用關系
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
 
@@ -122,7 +122,7 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
         exit(-1);
     }   
 
-    // Check mode change
+    // 檢查建圖模式和不建圖模型的轉換
     {
         unique_lock<mutex> lock(mMutexMode);    // 进程锁 锁定上一处大括号所包含的代码块, 必须在其他使用了该代码块变量的地方也声明锁才具有锁定功能，类似于flag
         if(mbActivateLocalizationMode)
@@ -146,7 +146,7 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
         }
     }
 
-    // Check reset
+    // Check reset  ——reset what？？
     {
     unique_lock<mutex> lock(mMutexReset);
     if(mbReset)
@@ -156,11 +156,11 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
     }
     }
 
-    cv::Mat Tcw = mpTracker->GrabImageStereo(imLeft,imRight,timestamp);
+    cv::Mat Tcw = mpTracker->GrabImageStereo(imLeft,imRight,timestamp);     // 正式開始Tracking
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;     // 跟踪状态更新
-    mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;      // map点与keypoint的关联更新
+    mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;      // map点与keypoint的关联的更新
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;        // 双目中这个冗余？
     return Tcw;
 }

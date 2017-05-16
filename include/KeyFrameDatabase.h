@@ -60,7 +60,7 @@ public:
 protected:
 
   // Associated vocabulary
-  const ORBVocabulary* mpVoc;
+  const ORBVocabulary* mpVoc;   // 使用到的詞匯表存在這裏
 
   // Inverted file
   std::vector<list<KeyFrame*> > mvInvertedFile;     //单词->关键帧的索引  [i]表示含有第i个word id的所有关键帧
