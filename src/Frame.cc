@@ -254,16 +254,16 @@ void Frame::ExtractORB(int flag, const cv::Mat &im)
 
 void Frame::SetPose(cv::Mat Tcw)
 {
-    mTcw = Tcw.clone();
+    mTcw = Tcw.clone(); // SE3
     UpdatePoseMatrices();
 }
 
 void Frame::UpdatePoseMatrices()
 { 
-    mRcw = mTcw.rowRange(0,3).colRange(0,3);
+    mRcw = mTcw.rowRange(0,3).colRange(0,3);    // 取前三行三列 Rotation: SO3 3*3
     mRwc = mRcw.t();
-    mtcw = mTcw.rowRange(0,3).col(3);
-    mOw = -mRcw.t()*mtcw;
+    mtcw = mTcw.rowRange(0,3).col(3);   //前三行第3列  Transition 3*1
+    mOw = -mRcw.t()*mtcw;   // 相機光心
 }
 
 bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
