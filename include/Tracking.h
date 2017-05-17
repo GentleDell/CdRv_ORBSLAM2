@@ -199,7 +199,7 @@ protected:
     float mDepthMapFactor;
 
     //Current matches in frame
-    int mnMatchesInliers;   // 当前跟踪上的点数
+    int mnMatchesInliers;   // 当前匹配上的点数
 
     //Last Frame, KeyFrame and Relocalisation Info
     KeyFrame* mpLastKeyFrame;

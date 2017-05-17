@@ -274,7 +274,7 @@ void Tracking::Track()
 
     mLastProcessedState=mState;     // 將此前跟蹤狀態計爲上一時刻跟蹤狀態，新的時刻到了
 
-    // Get Map Mutex -> Map cannot be changed   停止地图更新？
+    // Get Map Mutex -> Map cannot be changed   停止地图更新， 鎖整個函數
     unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
 
     if(mState==NOT_INITIALIZED)         // track未初始化则进行初始化，成功初始化后 mState=OK
@@ -318,7 +318,7 @@ void Tracking::Track()
             }
             else    // 跟踪Lost了
             {
-                bOK = Relocalization();         // 进行relocalization
+                bOK = Relocalization();         // 进行relocalization     ？
             }
         }
         else        // 仅仅进行tracking，不建图
@@ -333,7 +333,7 @@ void Tracking::Track()
             {
                 if(!mbVO)       // 爲False 則說明匹配上的點很多，可以直接更新
                 {
-                    // In last frame we tracked enough MapPoints in the map
+
 
                     if(!mVelocity.empty())      // motion model 可用
                     {
@@ -371,14 +371,14 @@ void Tracking::Track()
                         mCurrentFrame.SetPose(TcwMM);
                         mCurrentFrame.mvpMapPoints = vpMPsMM;
                         mCurrentFrame.mvbOutlier = vbOutMM;
-                        // ？？ 此前已經判斷mbVO爲真，運行到這一步mbOnlyTracking爲真，bOKMM爲真，則mbVO 就是False吧？ MM裏面有對mbVO賦值，mbVO也只在Tracking用到
-                        if(mbVO)    // 此前关联到map point的點太少; 爲何還要再判斷一次 應該出現不了吧 ？？
+                        //
+                        if(mbVO)
                         {
                             for(int i =0; i<mCurrentFrame.N; i++)
                             {
                                 if(mCurrentFrame.mvpMapPoints[i] && !mCurrentFrame.mvbOutlier[i])
                                 {
-                                    mCurrentFrame.mvpMapPoints[i]->IncreaseFound();     // 跟踪计数器mnFound + 1
+                                    mCurrentFrame.mvpMapPoints[i]->IncreaseFound();     // 跟踪计数器mnFound + 1 ？   0.25f
                                 }
                             }
                         }
@@ -421,7 +421,7 @@ void Tracking::Track()
         if(bOK)
         {
             // 更新运动模型
-            if(!mLastFrame.mTcw.empty())    // 如果上一帧求得了位姿， 在跟蹤良好時會求不出位姿嗎 ？？
+            if(!mLastFrame.mTcw.empty())    // 如果上一帧求得了位姿， 定位第一幀就進不來
             {
                 cv::Mat LastTwc = cv::Mat::eye(4,4,CV_32F);
                 mLastFrame.GetRotationInverse().copyTo(LastTwc.rowRange(0,3).colRange(0,3));
@@ -449,7 +449,7 @@ void Tracking::Track()
             for(list<MapPoint*>::iterator lit = mlpTemporalPoints.begin(), lend =  mlpTemporalPoints.end(); lit!=lend; lit++)
             {
                 MapPoint* pMP = *lit;
-                delete pMP;     // 刪除指針指向的內存 也可以 delete *lit ?
+                delete pMP;     // 刪除指針指向的內存 也可以 delete *lit
             }
             mlpTemporalPoints.clear();  // 清空mlpTemporalPoints這個list
 
@@ -480,7 +480,7 @@ void Tracking::Track()
         }
 
         if(!mCurrentFrame.mpReferenceKF)    // 当前帧的参考关键帧为空
-            mCurrentFrame.mpReferenceKF = mpReferenceKF;    // 對應到Ref KeyFrame
+            mCurrentFrame.mpReferenceKF = mpReferenceKF;    // 對應到Ref KeyFrame  之前復制可能爲空或者被刪掉
 
         mLastFrame = Frame(mCurrentFrame);  // 将当前帧复制到mLastFrame中——當前幀終於也成爲了歷史
     }
@@ -488,16 +488,16 @@ void Tracking::Track()
     // Store frame pose information to retrieve the complete camera trajectory afterwards.
     if(!mCurrentFrame.mTcw.empty())
     {
-        cv::Mat Tcr = mCurrentFrame.mTcw*mCurrentFrame.mpReferenceKF->GetPoseInverse();     //  ??
+        cv::Mat Tcr = mCurrentFrame.mTcw*mCurrentFrame.mpReferenceKF->GetPoseInverse();     // Tcr = mTcw * Twr 後者是RefFrame的Twc
         mlRelativeFramePoses.push_back(Tcr);
         mlpReferences.push_back(mpReferenceKF);
         mlFrameTimes.push_back(mCurrentFrame.mTimeStamp);
-        mlbLost.push_back(mState==LOST);        // 为什么和下面一樣是LOST？
+        mlbLost.push_back(mState==LOST);        // 邏輯判斷
     }
     else
     {
         // This can happen if tracking is lost
-        mlRelativeFramePoses.push_back(mlRelativeFramePoses.back());    // 存储相对位姿？
+        mlRelativeFramePoses.push_back(mlRelativeFramePoses.back());    // 復制
         mlpReferences.push_back(mlpReferences.back());
         mlFrameTimes.push_back(mlFrameTimes.back());
         mlbLost.push_back(mState==LOST);
@@ -530,7 +530,7 @@ void Tracking::StereoInitialization()
                 pNewMP->AddObservation(pKFini,i);       // 建立本KeyFrame與本mappoint的觀察關系
                 pKFini->AddMapPoint(pNewMP,i);      // 建立該Keypoint與Mappoint的聯系
                 pNewMP->ComputeDistinctiveDescriptors();
-                pNewMP->UpdateNormalAndDepth();     // ？
+                pNewMP->UpdateNormalAndDepth();     // 更新法向量和深度
                 mpMap->AddMapPoint(pNewMP);     // 正式將Mappoint加入地圖
 
                 mCurrentFrame.mvpMapPoints[i]=pNewMP;   // 建立CurrentFrame與本Mappoint的聯系
@@ -744,7 +744,7 @@ void Tracking::CheckReplacedInLastFrame()       // 对上一帧中关联到keypo
 
         if(pMP)     // 如果指针不为空  if(!p) = if(p==null)
         {
-            MapPoint* pRep = pMP->GetReplaced();    // 如果发生替换，则会返回该替换的指针， 在Map 里不更新，只标记bad点？
+            MapPoint* pRep = pMP->GetReplaced();    // 如果发生替换，则会返回该替换的指针， 在Map 里不更新，只标记bad点 ？   —— 可能對應的Mappoint.cc Replace
             if(pRep)
             {
                 mLastFrame.mvpMapPoints[i] = pRep;
@@ -799,13 +799,13 @@ bool Tracking::TrackReferenceKeyFrame()
     return nmatchesMap>=10;     // 超过10个就认为Tracking 上了
 }
 
-void Tracking::UpdateLastFrame()        // 对上一帧状态进行更新,得到预测的pose??,再建立辅助点用于之后匹配,
+void Tracking::UpdateLastFrame()        // 对上一帧状态进行更新,得到预测的pose?,再建立辅助点用于之后匹配,
 {
     // 根据参考关键帧更新位姿
     KeyFrame* pRef = mLastFrame.mpReferenceKF;      // 上一帧的参考关键帧
-    cv::Mat Tlr = mlRelativeFramePoses.back();  // 获取上一帧处理所得到的??转移矩阵??; (返回存储的矩阵的最新的元素)
+    cv::Mat Tlr = mlRelativeFramePoses.back();  // 获取上一帧的Ref->camera 位姿————就是上一個Tcr
 
-    mLastFrame.SetPose(Tlr*pRef->GetPose());    // 使用转移矩阵乘以上一帧的位姿 来更新位姿？
+    mLastFrame.SetPose(Tlr*pRef->GetPose());    // Tlcw = Tlcr * Tlrw,上一幀中相機在世界坐標系的位姿
 
     if(mnLastKeyFrameId==mLastFrame.mnId || mSensor==System::MONOCULAR || !mbOnlyTracking)  // 上一帧新建了keyframe 或者 使用单目 或者 要求建图
         return;
@@ -914,7 +914,7 @@ bool Tracking::TrackWithMotionModel()
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;
                 nmatches--;
             }
-            else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
+            else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)    // 非oulier 且nObs>0, 故nmatchesMap較少
                 nmatchesMap++;
         }
     }    
@@ -939,26 +939,26 @@ bool Tracking::TrackLocalMap()
 
     // Optimize Pose
     Optimizer::PoseOptimization(&mCurrentFrame);
-    mnMatchesInliers = 0;
+    mnMatchesInliers = 0;   // 前匹配上的点数
 
     // 更新 MapPoints Statistics
     for(int i=0; i<mCurrentFrame.N; i++)    // 对当前帧所有Key Point
     {
-        if(mCurrentFrame.mvpMapPoints[i])   // 如果当前第i个Key point 有匹配的Map Point ？
+        if(mCurrentFrame.mvpMapPoints[i])   // 如果当前第i个Key point 有匹配的Map Point
         {
-            if(!mCurrentFrame.mvbOutlier[i])    // 不是outlier
+            if(!mCurrentFrame.mvbOutlier[i])    // Optimizer會輸出該Map Point不是outlier
             {
-                mCurrentFrame.mvpMapPoints[i]->IncreaseFound();     // 跟踪计数器mnFound + 1
+                mCurrentFrame.mvpMapPoints[i]->IncreaseFound();     // 跟踪计数器mnFound + 1     ？
                 if(!mbOnlyTracking)     // 开启了建图功能
                 {
-                    if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)     // 返回nObs，表示Observation？
-                        mnMatchesInliers++;
+                    if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)     // 有其他幀觀察到該Map point
+                        mnMatchesInliers++;     // 当前匹配上的点数+1
                 }
                 else
-                    mnMatchesInliers++;     // 本帧中的匹配数+1
+                    mnMatchesInliers++;
             }
-            else if(mSensor==System::STEREO)        // ？
-                mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint*>(NULL);   // 置NULL
+            else if(mSensor==System::STEREO)        // 不知道
+                mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint*>(NULL);   // 置NULL, 但是沒有恢復mvbOutlier 不知道
 
         }
     }
@@ -987,7 +987,7 @@ bool Tracking::NeedNewKeyFrame()
     const int nKFs = mpMap->KeyFramesInMap();       // 返回 mspKeyFrames.size()
 
     // 如果距离最近一次 relocalization还没有过去足够的帧数就不插入 keyframes
-    if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && nKFs>mMaxFrames)     // mMaxFrames就是相机帧率 但后一条是？？
+    if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && nKFs>mMaxFrames)     // mMaxFrames就是相机帧率; 後一條表示前期有機會就插入keyframe，後期主要依賴前一條件
         return false;
 
     // 在 reference keyframe跟踪Map point
@@ -1019,7 +1019,7 @@ bool Tracking::NeedNewKeyFrame()
     bool bNeedToInsertClose = (nTrackedClose<100) && (nNonTrackedClose>70);     // 跟上的点少于100个 且未跟上的大于70个
 
     // Thresholds
-    float thRefRatio = 0.75f;   // 强制为float ?
+    float thRefRatio = 0.75f;   // 强制为float ———— mnFound/mnVisible 的門限
     if(nKFs<2)      // 如果地图的关键帧少于2个
         thRefRatio = 0.4f;
 
@@ -1107,7 +1107,7 @@ void Tracking::CreateNewKeyFrame()
                 MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];  // 对应第i个Keypoint的Mappoint
                 if(!pMP)        // 该Key point没有对应的Map point
                     bCreateNew = true;      // 那就创建一个
-                else if(pMP->Observations()<1)      // 或者该Key point被看到的帧数为0    ？
+                else if(pMP->Observations()<1)      // 或者该Key point被看到的帧数为0
                 {
                     bCreateNew = true;
                     mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint*>(NULL);       // 将Mappoint 置NULL
@@ -1119,8 +1119,8 @@ void Tracking::CreateNewKeyFrame()
                     MapPoint* pNewMP = new MapPoint(x3D,pKF,mpMap);     // 生成並初始化Mappoint的實例，包含了該點所屬的關鍵幀，被看到的幀數nObs等許多屬性
                     pNewMP->AddObservation(pKF,i);      // 建立新建Mappoint與pKF 和第i 個Keypoint的對應關系
                     pKF->AddMapPoint(pNewMP,i);         // 建立KeyFrame 與新建Mappoint 和 Keypoint 的對應關系 —— mvpMapPoints[i] = pNewMP, 觀察到第i個Keypoint的Mappoint是pNewMP
-                    pNewMP->ComputeDistinctiveDescriptors();    // 找到該點和其他描述子的最小中值距離 ？
-                    pNewMP->UpdateNormalAndDepth();     // 更新 ？
+                    pNewMP->ComputeDistinctiveDescriptors();    // 找到該點和其他描述子的最小中值距離————用作Mappoint 的描述姿子
+                    pNewMP->UpdateNormalAndDepth();     // 更新法向和深度
                     mpMap->AddMapPoint(pNewMP);         // 添加pNewMP 到本map 的mspMapPoints 中
 
                     mCurrentFrame.mvpMapPoints[i]=pNewMP;   // 當前幀第i個Mappoint 是pNewMP
@@ -1179,7 +1179,7 @@ void Tracking::SearchLocalPoints()
         // 映射(this fills MapPoint variables for matching)
         if(mCurrentFrame.isInFrustum(pMP,0.5))  // 根据文中 V节 D小节 的1~5点进行筛选，返回是否可视 （边界，视角，距离，尺度）
         {
-            pMP->IncreaseVisible();     // 可视则mnVisible+1
+            pMP->IncreaseVisible();     // 可视则mnVisible+1   ？ 有什麼用
             nToMatch++;     //记录新增的匹配的Map point数量
         }
     }
@@ -1236,17 +1236,17 @@ void Tracking::UpdateLocalPoints()
 void Tracking::UpdateLocalKeyFrames()
 {
     // 每一个 map point 给看到该点的Key Frame投票
-    map<KeyFrame*,int> keyframeCounter;     // map是一个容器，提供一对一的关系 为何counter要是map ？
-    for(int i=0; i<mCurrentFrame.N; i++)    // 当前帧每一个Keypoint处理一次
+    map<KeyFrame*,int> keyframeCounter;     // map是一个容器，提供一对一的关系
+    for(int i=0; i<mCurrentFrame.N; i++)    // 對当前帧每一个Keypoint
     {
-        if(mCurrentFrame.mvpMapPoints[i])       // ith MapPoint associated to keypoint 的关联存在
+        if(mCurrentFrame.mvpMapPoints[i])       // MapPoint associated to ith keypoint 的关联存在
         {
             MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
             if(!pMP->isBad())       // 不是坏点
             {
-                const map<KeyFrame*,size_t> observations = pMP->GetObservations();      // 返回的是观察到该 Mappoint 的关键帧以及（该mappoint在keyframe中的指针还是就是指针？）
+                const map<KeyFrame*,size_t> observations = pMP->GetObservations();      // 返回的是观察到该 Mappoint 的所有KeyFrames以及（该mappoint在keyframe中的指针还是就是指针？）
                 for(map<KeyFrame*,size_t>::const_iterator it=observations.begin(), itend=observations.end(); it!=itend; it++)  //const_iterator迭代器。这个迭代器是可以自己增加的，但是其所指向的元素是不可以被改变的，迭代器可以不是数
-                    keyframeCounter[it->first]++;       // ？
+                    keyframeCounter[it->first]++;       // it->first 是KeyFrame， 指定KeyFrame的map<KeyFrame*,int> ，得到的就是int
             }
             else
             {
@@ -1278,12 +1278,12 @@ void Tracking::UpdateLocalKeyFrames()
             pKFmax=pKF;
         }
 
-        mvpLocalKeyFrames.push_back(it->first);     // 存入本地关键帧？
+        mvpLocalKeyFrames.push_back(it->first);     // 存入本地关键帧
         pKF->mnTrackReferenceForFrame = mCurrentFrame.mnId;         // 标记该关键帧是当前帧在Track中的相关帧 也即文中K1 KeyFrame 集合
     }
 
 
-    // 包含进一些未被包含的Keyframe，它们是已经被包含的那些keyframs的近邻——同时考虑了外观和时间远近
+    // 包含进一些未被包含的Keyframe，它们是已经被包含的那些keyframs的近邻 ———— 同时考虑了外观和时间远近
     for(vector<KeyFrame*>::const_iterator itKF=mvpLocalKeyFrames.begin(), itEndKF=mvpLocalKeyFrames.end(); itKF!=itEndKF; itKF++)
     {
         // Limit the number of keyframes
@@ -1314,7 +1314,7 @@ void Tracking::UpdateLocalKeyFrames()
             KeyFrame* pChildKF = *sit;
             if(!pChildKF->isBad())
             {
-                if(pChildKF->mnTrackReferenceForFrame!=mCurrentFrame.mnId)      // 与上面类似，将良好的 生成树的子节点存起来
+                if(pChildKF->mnTrackReferenceForFrame!=mCurrentFrame.mnId)      // 与上面类似，将良好的生成树的子节点存起来
                 {
                     mvpLocalKeyFrames.push_back(pChildKF);
                     pChildKF->mnTrackReferenceForFrame=mCurrentFrame.mnId;
@@ -1367,7 +1367,7 @@ bool Tracking::Relocalization()
     vector<vector<MapPoint*> > vvpMapPointMatches;  // 存储match上的点
     vvpMapPointMatches.resize(nKFs);
 
-    vector<bool> vbDiscarded;   // 记录keyframe效果？
+    vector<bool> vbDiscarded;   // 記錄KeyFrame是否有效
     vbDiscarded.resize(nKFs);
 
     int nCandidates=0;  // 记录keyframe中的Candidate数量
@@ -1375,11 +1375,11 @@ bool Tracking::Relocalization()
     for(int i=0; i<nKFs; i++)
     {
         KeyFrame* pKF = vpCandidateKFs[i];
-        if(pKF->isBad())        // keyframe 是 bad 的
+        if(pKF->isBad())        // keyframe 是壞幀 在KeyFrameCull 和 Eraser中有設置 ？
             vbDiscarded[i] = true;
         else
         {
-            int nmatches = matcher.SearchByBoW(pKF,mCurrentFrame,vvpMapPointMatches[i]);
+            int nmatches = matcher.SearchByBoW(pKF,mCurrentFrame,vvpMapPointMatches[i]);    // 通過SearchByBoW，找到第i個CandidateKF 中Mapoint 與CurrentFrame 中Keypoint 間的關聯存到vvpMapPointMatches
             if(nmatches<15)
             {
                 vbDiscarded[i] = true;      // match点少于15则无效
@@ -1388,46 +1388,46 @@ bool Tracking::Relocalization()
             else
             {
                 PnPsolver* pSolver = new PnPsolver(mCurrentFrame,vvpMapPointMatches[i]);    // match点大于15则进行PnP求解
-                pSolver->SetRansacParameters(0.99,10,300,4,0.5,5.991);  // 设置求解器
+                pSolver->SetRansacParameters(0.99,10,300,4,0.5,5.991);  // 设置每一個點數足夠多的匹配的求解器
                 vpPnPsolvers[i] = pSolver;
                 nCandidates++;
             }
         }
     }
 
-    // 不断进行P4P RANSAC 迭代
+    // 不断进行P4P RANSAC 迭代        ？
     // 直到有足够多的inlier支持该相机位姿
     bool bMatch = false;
     ORBmatcher matcher2(0.9,true);
 
     while(nCandidates>0 && !bMatch)     // 只要还有candidate且支持点数量不达标（50以上）就迭代
     {
-        for(int i=0; i<nKFs; i++)       // 还是逐帧来，为什么不直接用匹配结果？
+        for(int i=0; i<nKFs; i++)       // 还是逐帧來，因爲循環中索引順序和幀順序是一樣的，不是全都做一遍//
         {
             if(vbDiscarded[i])
                 continue;
 
-            // 进行5次RANSAC迭代
-            vector<bool> vbInliers;
+            // 對mCurrentFrame 和vvpMapPointMatches[i] 进行5次RANSAC迭代
+            vector<bool> vbInliers;     // 迭代得到的vvpMapPointMatches[i] 中inlier的記錄
             int nInliers;
             bool bNoMore;
 
             PnPsolver* pSolver = vpPnPsolvers[i];
-            cv::Mat Tcw = pSolver->iterate(5,bNoMore,vbInliers,nInliers);   // 得到相机位姿，迭代点数不够或者迭代次数大于最大值时bNoMore为True， vbInliers是bool vecor表示有效点？
+            cv::Mat Tcw = pSolver->iterate(5,bNoMore,vbInliers,nInliers);   // 得到相机位姿，迭代点数不够或者迭代次数大于最大值时bNoMore为True; vbInliers是bool vecor表明哪些是inlier
 
-            // If Ransac reachs max. iterations discard keyframe
+            // 到了最大值都找不到 忽略該 keyframe
             if(bNoMore)
             {
-                vbDiscarded[i]=true;    // 进一步排除部分keyframes
+                vbDiscarded[i]=true;
                 nCandidates--;
             }
 
             // 获得了相机位姿, 优化
             if(!Tcw.empty())
             {
-                Tcw.copyTo(mCurrentFrame.mTcw);     // 复制到currentframe的位姿
+                Tcw.copyTo(mCurrentFrame.mTcw);     // 复制成爲currentframe的位姿
 
-                set<MapPoint*> sFound;
+                set<MapPoint*> sFound;  // 用於區分由BoW 和Projection 得到的Mappoint
 
                 const int np = vbInliers.size();
 
@@ -1435,39 +1435,39 @@ bool Tracking::Relocalization()
                 {
                     if(vbInliers[j])
                     {
-                        mCurrentFrame.mvpMapPoints[j]=vvpMapPointMatches[i][j];
-                        sFound.insert(vvpMapPointMatches[i][j]);
+                        mCurrentFrame.mvpMapPoints[j]=vvpMapPointMatches[i][j];     // 將vvpMapPointMatches[i]中第j個匹配 作爲CurrentFrame 的Mappoint-Keypoint匹配
+                        sFound.insert(vvpMapPointMatches[i][j]);    // 插入sFound中
                     }
                     else
                         mCurrentFrame.mvpMapPoints[j]=NULL;
                 }
 
-                int nGood = Optimizer::PoseOptimization(&mCurrentFrame);    // 对当前帧进行位姿优化 返回有效点的correspondence数
+                int nGood = Optimizer::PoseOptimization(&mCurrentFrame);    // 对当前帧进行位姿优化 返回inlier的correspondence数， 會指出哪些是outlier點
 
-                if(nGood<10)
+                if(nGood<10)    // 如果得到的correspondence很少，就結束這一波
                     continue;
 
                 for(int io =0; io<mCurrentFrame.N; io++)
-                    if(mCurrentFrame.mvbOutlier[io])
+                    if(mCurrentFrame.mvbOutlier[io])    // 沒有恢復標志爲False
                         mCurrentFrame.mvpMapPoints[io]=static_cast<MapPoint*>(NULL);
 
-                // 如果inliers 很少, 再一次映射以后在更大的窗中搜索并优化
+                // 如果基於SearchByBoW位姿優化得到的inliers 仍不夠多, SearchByProjection再一次映射以后在更大的窗中搜索并优化
                 if(nGood<50)
                 {
-                    int nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,10,100);
+                    int nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,10,100);    // 反投影增加mappoint
 
-                    if(nadditional+nGood>=50)
+                    if(nadditional+nGood>=50)   // 兩種方法總點數足夠
                     {
                         nGood = Optimizer::PoseOptimization(&mCurrentFrame);
 
-                        // 有了更多inliers但还不够，则映射后在窄一些的窗中搜索
+                        // nGood还不够，则使用SearchByProjection在窄一些的窗中搜索————剛才超過50說明是可以有的
                         // 相机已经被优化了
                         if(nGood>30 && nGood<50)
                         {
-                            sFound.clear();
+                            sFound.clear(); // Optimizer會更新outlier， 這裏更新一下
                             for(int ip =0; ip<mCurrentFrame.N; ip++)
                                 if(mCurrentFrame.mvpMapPoints[ip])
-                                    sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
+                                    sFound.insert(mCurrentFrame.mvpMapPoints[ip]);  //
                             nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,3,64);
 
                             // 如果点数足够，最后进行一次优化

@@ -275,7 +275,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
     float Distances[N][N];
     for(size_t i=0;i<N;i++)
     {
-        Distances[i][i]=0;
+        Distances[i][i]=0;      // 主對角線爲零，對稱陣
         for(size_t j=i+1;j<N;j++)
         {
             int distij = ORBmatcher::DescriptorDistance(vDescriptors[i],vDescriptors[j]);
