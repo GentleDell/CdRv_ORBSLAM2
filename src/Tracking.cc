@@ -302,7 +302,7 @@ void Tracking::Track()
 
             if(mState==OK)      // 跟踪状态良好
             {
-                // Local Mapping might have changed some MapPoints tracked in last frame   更新那些change
+                // Local Mapping might have changed some MapPoints tracked in last frame   更新那些change   ？
                 CheckReplacedInLastFrame();
 
                 if(mVelocity.empty() || mCurrentFrame.mnId<mnLastRelocFrameId+2)    // 如果还没有运动模型 或者 当前帧与重定位帧的id差2
@@ -316,7 +316,7 @@ void Tracking::Track()
                         bOK = TrackReferenceKeyFrame();     // 如果运动模型匹配点少于10个，就还是用keyframe試一下
                 }
             }
-            else    // 跟踪Lost
+            else    // 跟踪Lost了
             {
                 bOK = Relocalization();         // 进行relocalization
             }
@@ -488,7 +488,7 @@ void Tracking::Track()
     // Store frame pose information to retrieve the complete camera trajectory afterwards.
     if(!mCurrentFrame.mTcw.empty())
     {
-        cv::Mat Tcr = mCurrentFrame.mTcw*mCurrentFrame.mpReferenceKF->GetPoseInverse();
+        cv::Mat Tcr = mCurrentFrame.mTcw*mCurrentFrame.mpReferenceKF->GetPoseInverse();     //  ??
         mlRelativeFramePoses.push_back(Tcr);
         mlpReferences.push_back(mpReferenceKF);
         mlFrameTimes.push_back(mCurrentFrame.mTimeStamp);
@@ -738,7 +738,7 @@ void Tracking::CreateInitialMapMonocular()
 
 void Tracking::CheckReplacedInLastFrame()       // 对上一帧中关联到keypoint 的 map point 进行检查
 {
-    for(int i =0; i<mLastFrame.N; i++)      // mLastFrame.N表示keypoint数目，每一个map point 都检查一次
+    for(int i =0; i<mLastFrame.N; i++)      // mLastFrame.N表示上一帧keypoint数目，每一个map point 都检查一次
     {
         MapPoint* pMP = mLastFrame.mvpMapPoints[i];
 
@@ -756,26 +756,26 @@ void Tracking::CheckReplacedInLastFrame()       // 对上一帧中关联到keypo
 
 bool Tracking::TrackReferenceKeyFrame()
 {
-    // Compute Bag of Words vector
+    // 计算BoW向量
     mCurrentFrame.ComputeBoW();
 
-    // We perform first an ORB matching with the reference keyframe
-    // If enough matches are found we setup a PnP solver
-    ORBmatcher matcher(0.7,true);           //  mfNNratio=0.7,   mbCheckOrientation = true.
+    // 先和Ref KeyFrame 进行BoW 匹配
+    //如果有足够的matches 就进行PnP 求解
+    ORBmatcher matcher(0.7,true);           //  初始化matcher：mfNNratio=0.7,   mbCheckOrientation = true.
     vector<MapPoint*> vpMapPointMatches;
 
-    // 找到reference frame中Map point 与 current frame中 ORB 的匹配关系，并返回数量
+    // 找到reference KeyFrame中Map point 与 current frame中 ORB 的匹配关系存储在vpMapPointMatches中，返回匹配上的总数量 ！看进去！
     int nmatches = matcher.SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
 
     if(nmatches<15)
         return false;
+    // 匹配点足够多
+    mCurrentFrame.mvpMapPoints = vpMapPointMatches;     // 将找到的匹配关系更新到CurrentFrame 的mvpMapPoints 中
+    mCurrentFrame.SetPose(mLastFrame.mTcw); // 沿用上一帧位姿矩阵
 
-    mCurrentFrame.mvpMapPoints = vpMapPointMatches;     // 更新匹配关系
-    mCurrentFrame.SetPose(mLastFrame.mTcw); // 更新位姿矩阵
+    Optimizer::PoseOptimization(&mCurrentFrame);    //优化Current位姿mTcw，并筛选出outlier的匹配
 
-    Optimizer::PoseOptimization(&mCurrentFrame);    //优化位姿
-
-    // Discard outliers 当前帧删除outlier
+    // 删除当前帧由Optimizer判断的outlier
     int nmatchesMap = 0;
     for(int i =0; i<mCurrentFrame.N; i++)
     {
@@ -786,28 +786,28 @@ bool Tracking::TrackReferenceKeyFrame()
                 MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
 
                 mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);  // 赋值为空表示 没有关联的key point
-                mCurrentFrame.mvbOutlier[i]=false;  // 恢复flag
-                pMP->mbTrackInView = false;     // 在ORBmatch和track 中不使用该点
+                mCurrentFrame.mvbOutlier[i]=false;  // 恢复flag为false
+                pMP->mbTrackInView = false;     // 表示在ORBmatcher.cc的SearchByProjection中不使用该点；在track 中不使用该点
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;  // 将本帧编号作为该点最近一次被看到的帧编号
                 nmatches--;     // 有效匹配点数减1
             }
-            else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)        // Obsercations() 返回nObs
-                nmatchesMap++;      // 可以映射到Ｍap的点计数器加1  ?
+            else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)        // Obsercations() 返回nObs，即检查该点是否是辅助点，是辅助点就不加入Map中
+                nmatchesMap++;      // 可以映射到Ｍap的点计数器加1
         }
     }
 
-    return nmatchesMap>=10;     // 10个？
+    return nmatchesMap>=10;     // 超过10个就认为Tracking 上了
 }
 
-void Tracking::UpdateLastFrame()
+void Tracking::UpdateLastFrame()        // 对上一帧状态进行更新,得到预测的pose??,再建立辅助点用于之后匹配,
 {
     // 根据参考关键帧更新位姿
     KeyFrame* pRef = mLastFrame.mpReferenceKF;      // 上一帧的参考关键帧
-    cv::Mat Tlr = mlRelativeFramePoses.back();  // 运动模型得到的帧间转移矩阵 ？， 输出最后一个元素
+    cv::Mat Tlr = mlRelativeFramePoses.back();  // 获取上一帧处理所得到的??转移矩阵??; (返回存储的矩阵的最新的元素)
 
     mLastFrame.SetPose(Tlr*pRef->GetPose());    // 使用转移矩阵乘以上一帧的位姿 来更新位姿？
 
-    if(mnLastKeyFrameId==mLastFrame.mnId || mSensor==System::MONOCULAR || !mbOnlyTracking)  // 上一帧是keyframe 或者 使用单目 或者 要求建图？？
+    if(mnLastKeyFrameId==mLastFrame.mnId || mSensor==System::MONOCULAR || !mbOnlyTracking)  // 上一帧新建了keyframe 或者 使用单目 或者 要求建图
         return;
 
     // 生成视觉里程计的MapPoints
@@ -837,23 +837,23 @@ void Tracking::UpdateLastFrame()
 
         bool bCreateNew = false;
 
-        MapPoint* pMP = mLastFrame.mvpMapPoints[i];     // 关联到keypoint[i]的map point
-        if(!pMP)    // 没有mappoint 关联到 keypoints
-            bCreateNew = true;
-        else if(pMP->Observations()<1)
+        MapPoint* pMP = mLastFrame.mvpMapPoints[i];     // 关联到该keypoint[i]的map point
+        if(!pMP)    // 没有mappoint 关联到该keypoints[i]
+            bCreateNew = true;      // 可以为它创建新的辅助点
+        else if(pMP->Observations()<1)      // 有map point点关联到,但观察到它的关键帧在eraser中被删除
         {
-            bCreateNew = true;
+            bCreateNew = true;      // 可以为它创建新的辅助点
         }
 
-        if(bCreateNew)
+        if(bCreateNew)  // 决定创建了
         {
-            cv::Mat x3D = mLastFrame.UnprojectStereo(i);    // 用上一幀映射出新的map point，用於投影到Current Frame，然後輔助匹配
+            cv::Mat x3D = mLastFrame.UnprojectStereo(i);    // 用上一幀映射出新的map point (用於投影到Current Frame，然後輔助匹配)
             MapPoint* pNewMP = new MapPoint(x3D,mpMap,&mLastFrame,i);
 
-            mLastFrame.mvpMapPoints[i]=pNewMP;  // 更新上一幀的map point與keypoint關聯
+            mLastFrame.mvpMapPoints[i]=pNewMP;  // 将新生成的Mappoint 与该keypoint 关联
 
-            mlpTemporalPoints.push_back(pNewMP); // 這些新加入用於輔助匹配的點爲初始化nObs，在插入新的KeyFrame時會刪除，可能用於減小運算量
-            nPoints++;
+            mlpTemporalPoints.push_back(pNewMP); // 加入mlpTemporalPoints中
+            nPoints++;      // 這些新加入用於輔助匹配的點爲初始化nObs，在插入新的KeyFrame時會刪除，可能用於減小運算量
         }
         else
         {
@@ -871,19 +871,19 @@ bool Tracking::TrackWithMotionModel()
 
     // 根据参考关键帧更新上一帧
     // 在Localization Moded则生成视觉里程计点
-    UpdateLastFrame();
+    UpdateLastFrame();  // 对上一帧状态进行更新,再建立辅助点用于之后匹配,
 
-    mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);   // 使用运动模型更新位姿
+    mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);   // 使用运动模型更新Current位姿
 
-    fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));     // 将当前帧的所有的key 和 map的关联关系都赋空
+    fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));     // 将当前帧的所有的key P和 map P的关联关系都清空
 
-    // Project points seen in previous frame
+    // 把前一帧的映射到3D
     int th;
     if(mSensor!=System::STEREO)
         th=15;
     else
         th=7;   // 双目门限是7——匹配所用的窗的大小
-    int nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR);  // 通过映射搜索的 匹配点的数目
+    int nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR);  // 通过搜索的 匹配点的数目
 
     // 如果匹配上的点少，就增大窗的大小
     if(nmatches<20)
@@ -895,7 +895,7 @@ bool Tracking::TrackWithMotionModel()
     if(nmatches<20)     // 还是太少就不再扩大
         return false;
 
-    // 通过所有匹配点优化当前帧的位姿
+    // 利用获得的所有匹配点优化当前帧的位姿
     Optimizer::PoseOptimization(&mCurrentFrame);
 
     // Discard outliers——同TrackReferenceKeyFrame
@@ -910,7 +910,7 @@ bool Tracking::TrackWithMotionModel()
 
                 mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
                 mCurrentFrame.mvbOutlier[i]=false;
-                pMP->mbTrackInView = false;
+                pMP->mbTrackInView = false;     // 表示在ORBmatcher.cc的SearchByProjection中不使用该点；在track 中不使用该点
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;
                 nmatches--;
             }
@@ -922,10 +922,10 @@ bool Tracking::TrackWithMotionModel()
     if(mbOnlyTracking)  // 若仅进行跟踪而不建图
     {
         mbVO = nmatchesMap<10;  // 記錄MM匹配點少的情況
-        return nmatches>20;
+        return nmatches>20;     // 要求至少20点
     }
 
-    return nmatchesMap>=10;     // 返回匹配结果
+    return nmatchesMap>=10;     // 返回匹配结果,建图的话10点就行
 }
 
 bool Tracking::TrackLocalMap()
@@ -1161,7 +1161,7 @@ void Tracking::SearchLocalPoints()
             {
                 pMP->IncreaseVisible();     // 跟踪计数器mnVisible+1
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;      // 标记该map point最近一次是被CurrentFrame看到
-                pMP->mbTrackInView = false;     // ？
+                pMP->mbTrackInView = false;     // 表示在ORBmatcher.cc的SearchByProjection中不使用该点；在track 中不使用该点
             }
         }
     }
@@ -1345,7 +1345,7 @@ void Tracking::UpdateLocalKeyFrames()
 
 bool Tracking::Relocalization()
 {
-    // Compute Bag of Words Vector
+    // 计算当前帧的BoW向量
     mCurrentFrame.ComputeBoW();
 
     // 跟踪Lost时进行重定位
@@ -1370,12 +1370,12 @@ bool Tracking::Relocalization()
     vector<bool> vbDiscarded;   // 记录keyframe效果？
     vbDiscarded.resize(nKFs);
 
-    int nCandidates=0;  // 记录有效keyframe数量？
+    int nCandidates=0;  // 记录keyframe中的Candidate数量
     // 一个一个试
     for(int i=0; i<nKFs; i++)
     {
         KeyFrame* pKF = vpCandidateKFs[i];
-        if(pKF->isBad())        // keyframe 是 bad 的？
+        if(pKF->isBad())        // keyframe 是 bad 的
             vbDiscarded[i] = true;
         else
         {
