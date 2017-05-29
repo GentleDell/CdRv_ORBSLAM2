@@ -57,23 +57,22 @@ public:
     // Constructor for Monocular cameras.
     Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
-    // Extract ORB on the image. 0 for left image and 1 for right image.
-    // 提取的关键点存放在mvKeys和mDescriptors中
-    // ORB是直接调orbExtractor提取的
+    //提取图像的ORB描述子：0表示左图，1表示右图
+    // ORB特征是将FAST特征点的检测方法与BRIEF特征描述子结合起来,并在它们原来的基础上做了改进与优化；使用orbExtractor()提取
+    // mvkeys 和mvkeysRight 存双目keypoints位置(未矫正)
+    // mDescriptors, mvDescriptorsRight 存各个keypoints对应的orb描述子
     void ExtractORB(int flag, const cv::Mat &im);
 
-    // Compute Bag of Words representation.
-    // 存放在mBowVec中
+    // 计算当前帧的BoW,存放在mBowVec中
     void ComputeBoW();
 
-    // Set the camera pose.
-    // 用Tcw更新mTcw
+    // 直接用指定的Tcw更新mTcw，用作相机位姿
     void SetPose(cv::Mat Tcw);
 
-    // Computes rotation, translation and camera center matrices from the camera pose.
+    // 用mTcw更新Rota,Trans和相机光心位置
     void UpdatePoseMatrices();
 
-    // Returns the camera center.
+    // 返回光心位置
     inline cv::Mat GetCameraCenter()
 	{
         return mOw.clone();
@@ -85,12 +84,13 @@ public:
         return mRwc.clone();
     }
 
-    // Check if a MapPoint is in the frustum of the camera
-    // and fill variables of the MapPoint to be used by the tracking
-    // 判断路标点是否在视野中
+    // 判断指定的MapPoint 是否在相机视野中
+    // 完善该MapPoint 在tracking中将会被用到的参数
+    // 在tracking 的SearchLocalPoints()中使用
     bool isInFrustum(MapPoint* pMP, float viewingCosLimit);
 
-    // Compute the cell of a keypoint (return false if outside the grid)
+    // 计算指定的keypoint 在图像中所处的网格（posX，posY），在图像外则返回False
+    // 只在Frame 的构造函数中使用
     bool PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
 
     vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const int minLevel=-1, const int maxLevel=-1) const;

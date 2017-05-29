@@ -104,8 +104,7 @@ protected:
     LoopClosing* mpLoopCloser;
     Tracking* mpTracker;
 
-    // Tracking线程向LocalMapping中插入关键帧是先插入到该队列中
-    std::list<KeyFrame*> mlNewKeyFrames; ///< 等待处理的关键帧列表
+    std::list<KeyFrame*> mlNewKeyFrames;
 
     KeyFrame* mpCurrentKeyFrame;
 
