@@ -93,10 +93,12 @@ public:
     // 只在Frame 的构造函数中使用
     bool PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
 
+    // 找到参数指定区域的特征点（已矫正的），返回满足各个条件的特征点序号
+    /// size_t: long unsigned int
     vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const int minLevel=-1, const int maxLevel=-1) const;
 
-    // Search a match for each keypoint in the left image to a keypoint in the right image.
-    // If there is a match, depth is computed and the right coordinate associated to the left keypoint is stored.
+    // 搜索左右图像匹配的keypoints，并求深度保存到mvDepth,保存右目keypoints坐标到mvuRight
+    // mvDepth,mvuRight 与keypoints数目一样，但只有有匹配才被赋值
     void ComputeStereoMatches();
 
     // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
