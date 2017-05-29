@@ -25,15 +25,15 @@
 #include<opencv2/core/core.hpp>
 #include<opencv2/features2d/features2d.hpp>
 
-#include"Viewer.h"
-#include"FrameDrawer.h"
-#include"Map.h"
-#include"LocalMapping.h"
-#include"LoopClosing.h"
-#include"Frame.h"
+#include "Viewer.h"
+#include "FrameDrawer.h"
+#include "Map.h"
+#include "LocalMapping.h"
+#include "LoopClosing.h"
+#include "Frame.h"
 #include "ORBVocabulary.h"
-#include"KeyFrameDatabase.h"
-#include"ORBextractor.h"
+#include "KeyFrameDatabase.h"
+#include "ORBextractor.h"
 #include "Initializer.h"
 #include "MapDrawer.h"
 #include "System.h"
@@ -67,7 +67,7 @@ public:
     void SetViewer(Viewer* pViewer);
 
     // Load new settings
-    // The focal lenght should be similar or scale prediction will fail when projecting points
+    // The focal length should be similar or scale prediction will fail when projecting points
     // TODO: Modify MapPoint::PredictScale to take into account focal lenght
     void ChangeCalibration(const string &strSettingPath);
 
@@ -89,7 +89,7 @@ public:
     eTrackingState mState;
     eTrackingState mLastProcessedState;
 
-    // Input sensor
+    // Input sensor:MONOCULAR, STEREO, RGBD
     int mSensor;
 
     // Current Frame
@@ -97,8 +97,9 @@ public:
     cv::Mat mImGray;
 
     // Initialization Variables (Monocular)
+    // 初始化时前两帧相关变量
     std::vector<int> mvIniLastMatches;
-    std::vector<int> mvIniMatches;
+    std::vector<int> mvIniMatches;// 跟踪初始化时前两帧之间的匹配
     std::vector<cv::Point2f> mvbPrevMatched;
     std::vector<cv::Point3f> mvIniP3D;
     Frame mInitialFrame;
@@ -155,6 +156,10 @@ protected:
     LoopClosing* mpLoopClosing;
 
     //ORB
+    // orb特征提取器，不管单目还是双目，mpORBextractorLeft都要用到
+    // 如果是双目，则要用到mpORBextractorRight
+    // 如果是单目，在初始化的时候使用mpIniORBextractor而不是mpORBextractorLeft，
+    // mpIniORBextractor属性中提取的特征点个数是mpORBextractorLeft的两倍
     ORBextractor* mpORBextractorLeft, *mpORBextractorRight;
     ORBextractor* mpIniORBextractor;
 
@@ -163,12 +168,13 @@ protected:
     KeyFrameDatabase* mpKeyFrameDB;
 
     // Initalization (only for monocular)
+    // 单目初始器
     Initializer* mpInitializer;
 
     //Local Map
-    KeyFrame* mpReferenceKF;    // 文中提到的 Reference KeyFrame
-    std::vector<KeyFrame*> mvpLocalKeyFrames;       // 本地关键帧，包含K1 和良好的K2
-    std::vector<MapPoint*> mvpLocalMapPoints;        // 存储没有关联到CurrentFrame的 本地关键帧中的有效Map points（有效指notbad）
+    KeyFrame* mpReferenceKF;// 当前关键帧就是参考帧
+    std::vector<KeyFrame*> mvpLocalKeyFrames;   // 文中K1集合
+    std::vector<MapPoint*> mvpLocalMapPoints;
     
     // System
     System* mpSystem;
@@ -199,7 +205,7 @@ protected:
     float mDepthMapFactor;
 
     //Current matches in frame
-    int mnMatchesInliers;   // 当前匹配上的点数
+    int mnMatchesInliers;
 
     //Last Frame, KeyFrame and Relocalisation Info
     KeyFrame* mpLastKeyFrame;

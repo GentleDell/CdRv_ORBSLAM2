@@ -52,18 +52,18 @@ public:
    void clear();
 
    // Loop Detection
-   std::vector<KeyFrame *> DetectLoopCandidates(KeyFrame* pKF, float minScore);     //回环检测中寻找可能闭环的关键帧——只找全局关键帧
+   std::vector<KeyFrame *> DetectLoopCandidates(KeyFrame* pKF, float minScore);
 
    // Relocalization
-   std::vector<KeyFrame*> DetectRelocalizationCandidates(Frame* F);     //重定位中寻找最相似的关键帧——找所有关键帧
+   std::vector<KeyFrame*> DetectRelocalizationCandidates(Frame* F);
 
 protected:
 
   // Associated vocabulary
-  const ORBVocabulary* mpVoc;   // 使用到的詞匯表存在這裏
+  const ORBVocabulary* mpVoc; ///< 预先训练好的词典
 
   // Inverted file
-  std::vector<list<KeyFrame*> > mvInvertedFile;     //单词->关键帧的索引  [i]表示含有第i个word id的所有关键帧
+  std::vector<list<KeyFrame*> > mvInvertedFile; ///< 倒排索引，mvInvertedFile[i]表示包含了第i个word id的所有关键帧
 
   // Mutex
   std::mutex mMutex;

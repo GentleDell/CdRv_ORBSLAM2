@@ -58,29 +58,36 @@ public:
     Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
+    // 提取的关键点存放在mvKeys和mDescriptors中
+    // ORB是直接调orbExtractor提取的
     void ExtractORB(int flag, const cv::Mat &im);
 
     // Compute Bag of Words representation.
+    // 存放在mBowVec中
     void ComputeBoW();
 
     // Set the camera pose.
+    // 用Tcw更新mTcw
     void SetPose(cv::Mat Tcw);
 
     // Computes rotation, translation and camera center matrices from the camera pose.
     void UpdatePoseMatrices();
 
     // Returns the camera center.
-    inline cv::Mat GetCameraCenter(){
+    inline cv::Mat GetCameraCenter()
+	{
         return mOw.clone();
     }
 
-    // Returns inverse of rotation
-    inline cv::Mat GetRotationInverse(){
+    // Returns inverse of rotation; Inverse is the same as transpose;
+    inline cv::Mat GetRotationInverse()
+	{
         return mRwc.clone();
     }
 
     // Check if a MapPoint is in the frustum of the camera
     // and fill variables of the MapPoint to be used by the tracking
+    // 判断路标点是否在视野中
     bool isInFrustum(MapPoint* pMP, float viewingCosLimit);
 
     // Compute the cell of a keypoint (return false if outside the grid)
@@ -116,7 +123,7 @@ public:
     static float cy;
     static float invfx;
     static float invfy;
-    cv::Mat mDistCoef;  // 表示是否扭曲的参数？
+    cv::Mat mDistCoef;
 
     // Stereo baseline multiplied by fx.
     float mbf;
@@ -129,57 +136,71 @@ public:
     float mThDepth;
 
     // Number of KeyPoints.
-    int N;
+    int N; ///< KeyPoints数量
 
     // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
     // In the stereo case, mvKeysUn is redundant as images must be rectified.
     // In the RGB-D case, RGB images can be distorted.
+    // mvKeys:原始左图像提取出的特征点（未校正）
+    // mvKeysRight:原始右图像提取出的特征点（未校正）
+    // mvKeysUn:校正mvKeys后的特征点，对于双目摄像头，一般得到的图像都是校正好的，再校正一次有点多余
     std::vector<cv::KeyPoint> mvKeys, mvKeysRight;
     std::vector<cv::KeyPoint> mvKeysUn;
 
     // Corresponding stereo coordinate and depth for each keypoint.
     // "Monocular" keypoints have a negative value.
+    // 对于双目，mvuRight存储了左目像素点在右目中的对应点的横坐标
+    // mvDepth对应的深度
+    // 单目摄像头，这两个容器中存的都是-1
     std::vector<float> mvuRight;
-    std::vector<float> mvDepth; // 各个Keypoint的深度
+    std::vector<float> mvDepth;
 
     // Bag of Words Vector structures.
     DBoW2::BowVector mBowVec;
     DBoW2::FeatureVector mFeatVec;
 
     // ORB descriptor, each row associated to a keypoint.
+    // 左目摄像头和右目摄像头特征点对应的描述子
     cv::Mat mDescriptors, mDescriptorsRight;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
+    // 每个特征点对应的MapPoint
     std::vector<MapPoint*> mvpMapPoints;
 
     // Flag to identify outlier associations.
+    // 观测不到Map中的3D点
     std::vector<bool> mvbOutlier;
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
+    // 坐标乘以mfGridElementWidthInv和mfGridElementHeightInv就可以确定在哪个格子
     static float mfGridElementWidthInv;
     static float mfGridElementHeightInv;
+    // 每个格子分配的特征点数，将图像分成格子，保证提取的特征点比较均匀
+    // FRAME_GRID_ROWS 48
+    // FRAME_GRID_COLS 64
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Camera pose.
-    cv::Mat mTcw;
+    cv::Mat mTcw; ///< 相机姿态 世界坐标系到相机坐标坐标系的变换矩阵
 
     // Current and Next Frame id.
-    static long unsigned int nNextId;
-    long unsigned int mnId;
+    static long unsigned int nNextId; ///< Next Frame id.
+    long unsigned int mnId; ///< Current Frame id.
 
     // Reference Keyframe.
-    KeyFrame* mpReferenceKF;    // 文中提到的 Reference KeyFrame， 与Track.h 中同名
+    KeyFrame* mpReferenceKF;//指针，指向参考关键帧
 
     // Scale pyramid info.
-    int mnScaleLevels;
-    float mfScaleFactor;
-    float mfLogScaleFactor;
+    int mnScaleLevels;//图像提金字塔的层数
+    float mfScaleFactor;//图像提金字塔的尺度因子
+    float mfLogScaleFactor;//
     vector<float> mvScaleFactors;
     vector<float> mvInvScaleFactors;
     vector<float> mvLevelSigma2;
     vector<float> mvInvLevelSigma2;
 
     // Undistorted Image Bounds (computed once).
+    // 用于确定画格子时的边界
     static float mnMinX;
     static float mnMaxX;
     static float mnMinY;
@@ -202,10 +223,10 @@ private:
     void AssignFeaturesToGrid();
 
     // Rotation, translation and camera center
-    cv::Mat mRcw;
-    cv::Mat mtcw;
-    cv::Mat mRwc;
-    cv::Mat mOw; //==mtwc
+    cv::Mat mRcw; ///< Rotation from world to camera
+    cv::Mat mtcw; ///< Translation from world to camera
+    cv::Mat mRwc; ///< Rotation from camera to world
+    cv::Mat mOw;  ///< mtwc,Translation from camera to world
 };
 
 }// namespace ORB_SLAM

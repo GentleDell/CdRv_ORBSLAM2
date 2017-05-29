@@ -35,7 +35,9 @@ class KeyFrame;
 class Map;
 class Frame;
 
-
+/**
+ * @brief MapPoint是一个地图点
+ */
 class MapPoint
 {
 public:
@@ -60,7 +62,7 @@ public:
     void SetBadFlag();
     bool isBad();
 
-    void Replace(MapPoint* pMP);    
+    void Replace(MapPoint* pMP);
     MapPoint* GetReplaced();
 
     void IncreaseVisible(int n=1);
@@ -82,20 +84,30 @@ public:
     int PredictScale(const float &currentDist, Frame* pF);
 
 public:
-    long unsigned int mnId;
+    long unsigned int mnId; ///< Global ID for MapPoint
     static long unsigned int nNextId;
-    long int mnFirstKFid;
-    long int mnFirstFrame;
+    const long int mnFirstKFid; ///< 创建该MapPoint的关键帧ID
+    const long int mnFirstFrame; ///< 创建该MapPoint的帧ID（即每一关键帧有一个帧ID）
     int nObs;
 
-    // Variables used by the tracking
+    // Variables used by the tracking   ?Frame
     float mTrackProjX;
     float mTrackProjY;
     float mTrackProjXR;
-    bool mbTrackInView;
     int mnTrackScaleLevel;
     float mTrackViewCos;
+    // TrackLocalMap - SearchByProjection中决定是否对该点进行投影的变量
+    // mbTrackInView==false的点有几种：
+    // a 已经和当前帧经过匹配（TrackReferenceKeyFrame，TrackWithMotionModel）但在优化过程中认为是外点
+    // b 已经和当前帧经过匹配且为内点，这类点也不需要再进行投影
+    // c 不在当前相机视野中的点（即未通过isInFrustum判断）
+    bool mbTrackInView;
+    // TrackLocalMap - UpdateLocalPoints中防止将MapPoints重复添加至mvpLocalMapPoints的标记
     long unsigned int mnTrackReferenceForFrame;
+    // TrackLocalMap - SearchLocalPoints中决定是否进行isInFrustum判断的变量
+    // mnLastFrameSeen==mCurrentFrame.mnId的点有几种：
+    // a 已经和当前帧经过匹配（TrackReferenceKeyFrame，TrackWithMotionModel）但在优化过程中认为是外点
+    // b 已经和当前帧经过匹配且为内点，这类点也不需要再进行投影
     long unsigned int mnLastFrameSeen;
 
     // Variables used by local mapping
@@ -105,46 +117,50 @@ public:
     // Variables used by loop closing
     long unsigned int mnLoopPointForKF;
     long unsigned int mnCorrectedByKF;
-    long unsigned int mnCorrectedReference;    
+    long unsigned int mnCorrectedReference;
     cv::Mat mPosGBA;
     long unsigned int mnBAGlobalForKF;
 
 
     static std::mutex mGlobalMutex;
 
-protected:    
+protected:
 
-     // Position in absolute coordinates
-     cv::Mat mWorldPos;
+    // Position in absolute coordinates
+    cv::Mat mWorldPos; ///< MapPoint在世界坐标系下的坐标
 
-     // Keyframes observing the point and associated index in keyframe
-     std::map<KeyFrame*,size_t> mObservations;
+    // Keyframes observing the point and associated index in keyframe
+    std::map<KeyFrame*,size_t> mObservations; ///< 观测到该MapPoint的KF和该MapPoint在KF中的索引
 
-     // Mean viewing direction
-     cv::Mat mNormalVector;
+    // Mean viewing direction
+    // 该MapPoint平均观测方向
+    cv::Mat mNormalVector;
 
-     // Best descriptor to fast matching
-     cv::Mat mDescriptor;
+    // Best descriptor to fast matching
+    // 每个3D点也有一个descriptor
+    // 如果MapPoint与很多帧图像特征点对应（由keyframe来构造时），那么距离其它描述子的平均距离最小的描述子是最佳描述子
+    // MapPoint只与一帧的图像特征点对应（由frame来构造时），那么这个特征点的描述子就是该3D点的描述子
+    cv::Mat mDescriptor; ///< 通过 ComputeDistinctiveDescriptors() 得到的最优描述子
 
-     // Reference KeyFrame
-     KeyFrame* mpRefKF;
+    // Reference KeyFrame
+    KeyFrame* mpRefKF;
 
-     // Tracking counters
-     int mnVisible;
-     int mnFound;
+    // Tracking counters
+    int mnVisible;
+    int mnFound;
 
-     // Bad flag (we do not currently erase MapPoint from memory)
-     bool mbBad;
-     MapPoint* mpReplaced;
+    // Bad flag (we do not currently erase MapPoint from memory)
+    bool mbBad;
+    MapPoint* mpReplaced;
 
-     // Scale invariance distances
-     float mfMinDistance;
-     float mfMaxDistance;
+    // Scale invariance distances
+    float mfMinDistance;
+    float mfMaxDistance;
 
-     Map* mpMap;
+    Map* mpMap;
 
-     std::mutex mMutexPos;
-     std::mutex mMutexFeatures;
+    std::mutex mMutexPos;
+    std::mutex mMutexFeatures;
 };
 
 } //namespace ORB_SLAM
