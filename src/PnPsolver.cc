@@ -168,9 +168,9 @@ cv::Mat PnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlie
     vbInliers.clear();
     nInliers=0;
 
-    set_maximum_number_of_correspondences(mRansacMinSet);   // PnP设置
+    set_maximum_number_of_correspondences(mRansacMinSet);
 
-    if(N<mRansacMinInliers)     // 至少需要mRansacMinInliers个匹配关系
+    if(N<mRansacMinInliers)
     {
         bNoMore = true;
         return cv::Mat();
@@ -341,7 +341,7 @@ void PnPsolver::CheckInliers()
 
 void PnPsolver::set_maximum_number_of_correspondences(int n)
 {
-  if (maximum_number_of_correspondences < n) {      // 初始为0
+  if (maximum_number_of_correspondences < n) {
     if (pws != 0) delete [] pws;
     if (us != 0) delete [] us;
     if (alphas != 0) delete [] alphas;

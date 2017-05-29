@@ -31,7 +31,7 @@ Map::Map():mnMaxKFid(0),mnBigChangeIdx(0)
 
 void Map::AddKeyFrame(KeyFrame *pKF)
 {
-    unique_lock<mutex> lock(mMutexMap);     // 进程锁 直到程序结束时的代码块所涉及的变量均被锁定 mMutexMap这个变量只要在加锁前定义了即可
+    unique_lock<mutex> lock(mMutexMap);
     mspKeyFrames.insert(pKF);
     if(pKF->mnId>mnMaxKFid)
         mnMaxKFid=pKF->mnId;

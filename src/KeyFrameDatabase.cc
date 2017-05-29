@@ -33,7 +33,7 @@ namespace ORB_SLAM2
 KeyFrameDatabase::KeyFrameDatabase (const ORBVocabulary &voc):
     mpVoc(&voc)
 {
-    mvInvertedFile.resize(voc.size());      // 根據詞匯表大小設置逆向索引的大小
+    mvInvertedFile.resize(voc.size());
 }
 
 
@@ -117,7 +117,7 @@ vector<KeyFrame*> KeyFrameDatabase::DetectLoopCandidates(KeyFrame* pKF, float mi
             maxCommonWords=(*lit)->mnLoopWords;
     }
 
-    int minCommonWords = maxCommonWords*0.8f;       //0.8是门限
+    int minCommonWords = maxCommonWords*0.8f;
 
     int nscores=0;
 

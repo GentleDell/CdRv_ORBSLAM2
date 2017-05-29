@@ -589,13 +589,13 @@ void LocalMapping::Release()
 {
     unique_lock<mutex> lock(mMutexStop);
     unique_lock<mutex> lock2(mMutexFinish);
-    if(mbFinished)  // mapbuild finished
+    if(mbFinished)
         return;
     mbStopped = false;
     mbStopRequested = false;
-    for(list<KeyFrame*>::iterator lit = mlNewKeyFrames.begin(), lend=mlNewKeyFrames.end(); lit!=lend; lit++)    // 使用C++迭代器进行循环，删除指向关键帧列表的迭代器
+    for(list<KeyFrame*>::iterator lit = mlNewKeyFrames.begin(), lend=mlNewKeyFrames.end(); lit!=lend; lit++)
         delete *lit;
-    mlNewKeyFrames.clear();     // 清空关键帧列表
+    mlNewKeyFrames.clear();
 
     cout << "Local Mapping RELEASE" << endl;
 }
@@ -619,7 +619,7 @@ bool LocalMapping::SetNotStop(bool flag)
     if(flag && mbStopped)
         return false;
 
-    mbNotStop = flag;   // local mapping状态 没有停止？
+    mbNotStop = flag;
 
     return true;
 }
@@ -743,12 +743,12 @@ bool LocalMapping::CheckFinish()
     return mbFinishRequested;
 }
 
-void LocalMapping::SetFinish()      // LocalMapping 结束后调用
+void LocalMapping::SetFinish()
 {
     unique_lock<mutex> lock(mMutexFinish);
-    mbFinished = true;           // LocalMapping 结束后为true
+    mbFinished = true;    
     unique_lock<mutex> lock2(mMutexStop);
-    mbStopped = true;        // LocalMapping 结束后为true
+    mbStopped = true;
 }
 
 bool LocalMapping::isFinished()

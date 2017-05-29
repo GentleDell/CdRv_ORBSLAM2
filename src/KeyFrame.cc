@@ -67,7 +67,7 @@ void KeyFrame::ComputeBoW()
     }
 }
 
-void KeyFrame::SetPose(const cv::Mat &Tcw_) // Tcw当前帧位姿 世界->当前帧 Twc相反
+void KeyFrame::SetPose(const cv::Mat &Tcw_)
 {
     unique_lock<mutex> lock(mMutexPose);
     Tcw_.copyTo(Tcw);
@@ -177,7 +177,7 @@ vector<KeyFrame*> KeyFrame::GetBestCovisibilityKeyFrames(const int &N)
     if((int)mvpOrderedConnectedKeyFrames.size()<N)
         return mvpOrderedConnectedKeyFrames;
     else
-        return vector<KeyFrame*>(mvpOrderedConnectedKeyFrames.begin(),mvpOrderedConnectedKeyFrames.begin()+N);      // 大于要求的N，则只传送前N个
+        return vector<KeyFrame*>(mvpOrderedConnectedKeyFrames.begin(),mvpOrderedConnectedKeyFrames.begin()+N);
 
 }
 
@@ -247,7 +247,7 @@ set<MapPoint*> KeyFrame::GetMapPoints()
     return s;
 }
 
-int KeyFrame::TrackedMapPoints(const int &minObs)   //返回满足条件的三维点的数目, 条件是： 这些三维点可被大于minObs的关键帧观测到
+int KeyFrame::TrackedMapPoints(const int &minObs)
 {
     unique_lock<mutex> lock(mMutexFeatures);
 
@@ -286,7 +286,7 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
     return mvpMapPoints[idx];
 }
 
-void KeyFrame::UpdateConnections()  // 更新共视图的连接，未初始化则更新生成树
+void KeyFrame::UpdateConnections()
 {
     map<KeyFrame*,int> KFcounter;
 
@@ -327,7 +327,7 @@ void KeyFrame::UpdateConnections()  // 更新共视图的连接，未初始化�
     //In case no keyframe counter is over threshold add the one with maximum counter
     int nmax=0;
     KeyFrame* pKFmax=NULL;
-    int th = 15;    // 门限
+    int th = 15;
 
     vector<pair<int,KeyFrame*> > vPairs;
     vPairs.reserve(KFcounter.size());
@@ -450,7 +450,7 @@ void KeyFrame::SetErase()
     }
 }
 
-void KeyFrame::SetBadFlag()     //把当前关键帧设为坏帧
+void KeyFrame::SetBadFlag()
 {   
     {
         unique_lock<mutex> lock(mMutexConnections);

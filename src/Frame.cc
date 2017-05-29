@@ -69,27 +69,27 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     mnScaleLevels = mpORBextractorLeft->GetLevels();
     mfScaleFactor = mpORBextractorLeft->GetScaleFactor();
     mfLogScaleFactor = log(mfScaleFactor);
-    mvScaleFactors = mpORBextractorLeft->GetScaleFactors(); // mv表示返回是vector类型，为什么？前面返回的又是什么？
+    mvScaleFactors = mpORBextractorLeft->GetScaleFactors();
     mvInvScaleFactors = mpORBextractorLeft->GetInverseScaleFactors();
     mvLevelSigma2 = mpORBextractorLeft->GetScaleSigmaSquares();
     mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
 
-    // ORB extraction; ORB 特征提取
+    // ORB extraction
     thread threadLeft(&Frame::ExtractORB,this,0,imLeft);
     thread threadRight(&Frame::ExtractORB,this,1,imRight);
-    threadLeft.join();  // 等待threadLeft执行结束再继续运行
-    threadRight.join(); // 等待threadRight执行结束再继续运行
+    threadLeft.join();
+    threadRight.join();
 
-    N = mvKeys.size();  // Keypoints向量的大小
+    N = mvKeys.size();
 
     if(mvKeys.empty())
         return;
 
-    UndistortKeyPoints();   //双目中不用
+    UndistortKeyPoints();
 
-    ComputeStereoMatches(); // 计算匹配结果
+    ComputeStereoMatches();
 
-    mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));    // 与keypoint关联的map point
+    mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));    
     mvbOutlier = vector<bool>(N,false);
 
 
@@ -113,7 +113,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 
     mb = mbf/fx;
 
-    AssignFeaturesToGrid(); // 将特征点按网格划分，加速匹配过程
+    AssignFeaturesToGrid();
 }
 
 Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
@@ -254,16 +254,16 @@ void Frame::ExtractORB(int flag, const cv::Mat &im)
 
 void Frame::SetPose(cv::Mat Tcw)
 {
-    mTcw = Tcw.clone(); // SE3
+    mTcw = Tcw.clone();
     UpdatePoseMatrices();
 }
 
 void Frame::UpdatePoseMatrices()
 { 
-    mRcw = mTcw.rowRange(0,3).colRange(0,3);    // 取前三行三列 Rotation: SO3 3*3
+    mRcw = mTcw.rowRange(0,3).colRange(0,3);
     mRwc = mRcw.t();
-    mtcw = mTcw.rowRange(0,3).col(3);   //前三行第3列  Transition 3*1
-    mOw = -mRcw.t()*mtcw;   // 相機光心
+    mtcw = mTcw.rowRange(0,3).col(3);
+    mOw = -mRcw.t()*mtcw;
 }
 
 bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
@@ -403,27 +403,26 @@ void Frame::ComputeBoW()
 
 void Frame::UndistortKeyPoints()
 {
-    if(mDistCoef.at<float>(0)==0.0) // 第一位为0,表示无扭曲
+    if(mDistCoef.at<float>(0)==0.0)
     {
         mvKeysUn=mvKeys;
         return;
     }
 
     // Fill matrix with points
-    cv::Mat mat(N,2,CV_32F);    // Keypoint数量, 2维，CV_32F = 5 是一个type define
+    cv::Mat mat(N,2,CV_32F);
     for(int i=0; i<N; i++)
     {
-        // pt 表示keypoint点的坐标，包括x,y;     size 表示keypoint的邻域直径；   angle 表示keypoint相对于图像坐标系的orientation, [0, 360]
-        mat.at<float>(i,0)=mvKeys[i].pt.x;  // mat.at<float>(i,j)：将i,j位置的像素读取为float型；这里将Keypoint像素点的x和y坐标存出来
+        mat.at<float>(i,0)=mvKeys[i].pt.x;
         mat.at<float>(i,1)=mvKeys[i].pt.y;
     }
 
-    // 恢复扭曲
-    mat=mat.reshape(2);    // 改成两通道形式
+    // Undistort points
+    mat=mat.reshape(2);
     cv::undistortPoints(mat,mat,mK,mDistCoef,cv::Mat(),mK);
-    mat=mat.reshape(1); // 变回单通道形式
+    mat=mat.reshape(1);
 
-    // 将恢复的点存到向量中
+    // Fill undistorted keypoint vector
     mvKeysUn.resize(N);
     for(int i=0; i<N; i++)
     {
