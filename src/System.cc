@@ -61,7 +61,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     //Load ORB Vocabulary
     cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
-    mpVocabulary = new ORBVocabulary();     // 读入词典，生成词汇树 ?
+    mpVocabulary = new ORBVocabulary();
     bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
     if(!bVocLoad)
     {
@@ -72,17 +72,17 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     cout << "Vocabulary loaded!" << endl << endl;
 
     //Create KeyFrame Database
-    mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);   // 生成詞匯逆向索引 KeyFrame的 list
+    mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
 
     //Create the Map
-    mpMap = new Map();  // 實例化使用的地圖
+    mpMap = new Map();
 
-    //Create Drawers. These are used by the Viewer  // 生成兩個交互框，顯示視頻幀和地圖構建結果
+    //Create Drawers. These are used by the Viewer
     mpFrameDrawer = new FrameDrawer(mpMap);
     mpMapDrawer = new MapDrawer(mpMap, strSettingsFile);
 
-    // 初始化Tracking 線程
-    //(依附於主線程運行, the one that called this constructor)
+    //Initialize the Tracking thread
+    //(it will live in the main thread of execution, the one that called this constructor)
     mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
                              mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor);
 
@@ -102,7 +102,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         mpTracker->SetViewer(mpViewer);
     }
 
-    //設置線程間的引用關系
+    //Set pointers between threads
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
 
@@ -113,7 +113,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
 }
 
-// 通过修正后的双目图像计算并返回相机位姿 (tracking失败则返回为空).
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)
 {
     if(mSensor!=STEREO)
@@ -122,50 +121,49 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
         exit(-1);
     }   
 
-    // 檢查建圖模式和不建圖模型的轉換
+    // Check mode change
     {
-        unique_lock<mutex> lock(mMutexMode);    // 进程锁 锁定上一处大括号所包含的代码块, 必须在其他使用了该代码块变量的地方也声明锁才具有锁定功能，类似于flag
+        unique_lock<mutex> lock(mMutexMode);
         if(mbActivateLocalizationMode)
         {
-            mpLocalMapper->RequestStop();   // 调用LocalMapper进程，mbStopRequested和mbAborBA被置1
+            mpLocalMapper->RequestStop();
 
-            // Local Mapping停止前一直等待，在map.cc中会有处理将isStopped()返回的mbStopped的变量置1
+            // Wait until Local Mapping has effectively stopped
             while(!mpLocalMapper->isStopped())
             {
                 usleep(1000);
             }
 
-            mpTracker->InformOnlyTracking(true);    //将InformOnlyTracking()中的mbOnlyTracking置1,表示仅估计位姿，不建图
-            mbActivateLocalizationMode = false;     //将标志归零，避免反复进入
+            mpTracker->InformOnlyTracking(true);
+            mbActivateLocalizationMode = false;
         }
         if(mbDeactivateLocalizationMode)
         {
-            mpTracker->InformOnlyTracking(false);   //与上述相反，同时建图与定位
-            mpLocalMapper->Release();   // 清空关键帧列表
+            mpTracker->InformOnlyTracking(false);
+            mpLocalMapper->Release();
             mbDeactivateLocalizationMode = false;
         }
     }
 
-    // Check reset  ——reset what？？
+    // Check reset
     {
     unique_lock<mutex> lock(mMutexReset);
     if(mbReset)
     {
-        mpTracker->Reset();     // 重启map point跟踪
-        mbReset = false;    //重置flag
+        mpTracker->Reset();
+        mbReset = false;
     }
     }
 
-    cv::Mat Tcw = mpTracker->GrabImageStereo(imLeft,imRight,timestamp);     // 正式開始Tracking
+    cv::Mat Tcw = mpTracker->GrabImageStereo(imLeft,imRight,timestamp);
 
     unique_lock<mutex> lock2(mMutexState);
-    mTrackingState = mpTracker->mState;     // 跟踪状态更新
-    mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;      // map点与keypoint的关联的更新
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;        // 双目中这个冗余？
+    mTrackingState = mpTracker->mState;
+    mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
+    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
     return Tcw;
 }
 
-// 通过配准后的RGB-D图像计算并返回相机位姿 (tracking失败则返回为空).
 cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp)
 {
     if(mSensor!=RGBD)

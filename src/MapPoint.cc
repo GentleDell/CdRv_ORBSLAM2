@@ -95,14 +95,14 @@ KeyFrame* MapPoint::GetReferenceKeyFrame()
     return mpRefKF;
 }
 
-void MapPoint::AddObservation(KeyFrame* pKF, size_t idx)    // 建立本Mappoint實例 與KeyFrame和第i個Keypoint的關系
+void MapPoint::AddObservation(KeyFrame* pKF, size_t idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    if(mObservations.count(pKF))    // 如果觀察關系已經建立了，不做操作; map.count(pKF)查找 键是"pKF"的元素，如果找到返回1,否則返回0
+    if(mObservations.count(pKF))
         return;
-    mObservations[pKF]=idx;         // 如果pKF觀察到第i個keypoint到關系沒有建立，則建立關系
+    mObservations[pKF]=idx;
 
-    if(pKF->mvuRight[idx]>=0)   // 如果右眼看到，則觀察計數器+2, 否則+1  ？
+    if(pKF->mvuRight[idx]>=0)
         nObs+=2;
     else
         nObs++;
@@ -275,7 +275,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
     float Distances[N][N];
     for(size_t i=0;i<N;i++)
     {
-        Distances[i][i]=0;      // 主對角線爲零，對稱陣
+        Distances[i][i]=0;
         for(size_t j=i+1;j<N;j++)
         {
             int distij = ORBmatcher::DescriptorDistance(vDescriptors[i],vDescriptors[j]);
