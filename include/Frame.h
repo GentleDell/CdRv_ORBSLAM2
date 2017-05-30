@@ -104,17 +104,17 @@ public:
     // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
     void ComputeStereoFromRGBD(const cv::Mat &imDepth);
 
-    // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
+    // 反投影，将双目/深度图的keypoints投影到世界3D世界坐标系下
     cv::Mat UnprojectStereo(const int &i);
 
 public:
-    // Vocabulary used for relocalization.
+    // Vocabulary used for relocalization; tracking中有同名变量，两者指向同一词汇表
     ORBVocabulary* mpORBvocabulary;
 
-    // Feature extractor. The right is used only in the stereo case.
+    // Feature extractor. The right is used only in the stereo case; tracking中有同名变量，指向对应的相同的提取器
     ORBextractor* mpORBextractorLeft, *mpORBextractorRight;
 
-    // Frame timestamp.
+    // 当前Frame实例的时间戳
     double mTimeStamp;
 
     // Calibration matrix and OpenCV distortion parameters.
@@ -133,53 +133,46 @@ public:
     // Stereo baseline in meters.
     float mb;
 
-    // Threshold close/far points. Close points are inserted from 1 view.
+    // 远近点判断门限. Close points are inserted from 1 view.
     // Far points are inserted as in the monocular case from 2 views.
     float mThDepth;
 
-    // Number of KeyPoints.
+    // 当前实例的KeyPoints 数量.
     int N; ///< KeyPoints数量
 
-    // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
-    // In the stereo case, mvKeysUn is redundant as images must be rectified.
-    // In the RGB-D case, RGB images can be distorted.
-    // mvKeys:原始左图像提取出的特征点（未校正）
-    // mvKeysRight:原始右图像提取出的特征点（未校正）
-    // mvKeysUn:校正mvKeys后的特征点，对于双目摄像头，一般得到的图像都是校正好的，再校正一次有点多余
+    // mvKeys: 原始左图像提取出的Keypoints向量（未校正）
+    // mvKeysRight: 原始右图像提取出的Keypoints向量（未校正）
+    // mvKeysUn: mvKeys校正后的特征点，对于双目摄像头，一般得到的图像都是校正好的，再校正一次是冗余的；
+    //           对于RGBD图像则需要矫正，因为一般都是未矫正的
     std::vector<cv::KeyPoint> mvKeys, mvKeysRight;
     std::vector<cv::KeyPoint> mvKeysUn;
 
-    // Corresponding stereo coordinate and depth for each keypoint.
-    // "Monocular" keypoints have a negative value.
-    // 对于双目，mvuRight存储了左目像素点在右目中的对应点的横坐标
-    // mvDepth对应的深度
-    // 单目摄像头，这两个容器中存的都是-1
+    // mvuRight： 左右目匹配的Keypoints对中，对应于左目Keypoints的右目Keypoints在其图像坐标系中的x坐标
+    // mvDepth: 左右目匹配的Keypoints对应的深度
+    // 两个变量长度和左目Keypoints 数量一样
+    // 没有匹配的keypoints的位置其内容为-1; 单目摄像头，这两个容器中存的都是-1
     std::vector<float> mvuRight;
     std::vector<float> mvDepth;
 
     // Bag of Words Vector structures.
-    DBoW2::BowVector mBowVec;
-    DBoW2::FeatureVector mFeatVec;
+    DBoW2::BowVector mBowVec;       // 虽然是一个类，但主要的是其中 std::map<wordId, wordsValue>, 存储的是本帧的Bow向量中word--weight的映射; wordId只有根节点才有
+    DBoW2::FeatureVector mFeatVec;      // 虽然是一个类，但主要的是其中 std::map<NodeId, std::vector<unsigned int>>, 前者是词汇树的节点号，后者是节点聚类中心descriptor(orb)对应于本实例中feature的编号
 
-    // ORB descriptor, each row associated to a keypoint.
-    // 左目摄像头和右目摄像头特征点对应的描述子
+    // 左目摄像头和右目摄像头特征点对应的描述子矩阵，每一行对应一个Keypoint
     cv::Mat mDescriptors, mDescriptorsRight;
 
-    // MapPoints associated to keypoints, NULL pointer if no association.
-    // 每个特征点对应的MapPoint
+    // 每一个Keypoint对应的MapPoint，指针向量
     std::vector<MapPoint*> mvpMapPoints;
 
-    // Flag to identify outlier associations.
-    // 观测不到Map中的3D点
+    // 表明keypoints--mappoints 是否outlier的向量， 与keypoints数目相同
     std::vector<bool> mvbOutlier;
 
-    // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
-    // 坐标乘以mfGridElementWidthInv和mfGridElementHeightInv就可以确定在哪个格子
+    // 将图像分成若干个网格，坐标乘以mfGridElementWidthInv和mfGridElementHeightInv就可以确定在哪个格子，便于匹配和搜索
     static float mfGridElementWidthInv;
     static float mfGridElementHeightInv;
-    // 每个格子分配的特征点数，将图像分成格子，保证提取的特征点比较均匀
     // FRAME_GRID_ROWS 48
     // FRAME_GRID_COLS 64
+    // 二维数组，每个单元对应一个图像的网格，其中存储一个向量，向量中是该网格中所有特征点的序号（类似哈希表用于检索）
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Camera pose.
@@ -201,13 +194,13 @@ public:
     vector<float> mvLevelSigma2;
     vector<float> mvInvLevelSigma2;
 
-    // Undistorted Image Bounds (computed once).
-    // 用于确定画格子时的边界
+    // 对矫正后的图像划分网格，求mfGridElementxxInv时的使用的图像边界参数
     static float mnMinX;
     static float mnMaxX;
     static float mnMinY;
     static float mnMaxY;
 
+    // 初始化时标志是否进行网格划分和矫正（当矫正参数变化时也为true）———— 尚未用到?
     static bool mbInitialComputations;
 
 
@@ -218,10 +211,10 @@ private:
     // (called in the constructor).
     void UndistortKeyPoints();
 
-    // Computes image bounds for the undistorted image (called in the constructor).
+    // 在构造函数中使用，用于计算图像边界，即求解public中的mnMin/Max X/Y
     void ComputeImageBounds(const cv::Mat &imLeft);
 
-    // Assign keypoints to the grid for speed up feature matching (called in the constructor).
+    // 在构造函数中使用，根据keypoints位置将他们的序号分配到对应网格 mGrid[·][·]
     void AssignFeaturesToGrid();
 
     // Rotation, translation and camera center
