@@ -38,12 +38,12 @@ class KeyFrame;
 class Map
 {
 public:
-    Map();
+    Map();      // 初始化当前Map实例中最大的KeyFrame序号为0 （mnMaxKFid）
 
-    void AddKeyFrame(KeyFrame* pKF);
-    void AddMapPoint(MapPoint* pMP);
+    void AddKeyFrame(KeyFrame* pKF);    // 将指定的KF加入到本Map实例的KF集合中（mspKeyFrames）
+    void AddMapPoint(MapPoint* pMP);    // 将指定的MP加入到本Map实例的MP集合中（mspMapPoints）
     void EraseMapPoint(MapPoint* pMP);
-    void EraseKeyFrame(KeyFrame* pKF);
+    void EraseKeyFrame(KeyFrame* pKF);  // 清除Map中指定KF和MP的指针，并未清除内存
     void SetReferenceMapPoints(const std::vector<MapPoint*> &vpMPs);
     void InformNewBigChange();
     int GetLastBigChangeIdx();
@@ -59,7 +59,7 @@ public:
 
     void clear();
 
-    vector<KeyFrame*> mvpKeyFrameOrigins;
+    vector<KeyFrame*> mvpKeyFrameOrigins;       // 在Tracking初始化时用到，记录初始的KF
 
     std::mutex mMutexMapUpdate;
 

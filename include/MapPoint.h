@@ -39,32 +39,32 @@ class Frame;
 class MapPoint
 {
 public:
-    MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);
-    MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
+    MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);      // 给定位姿，KF,当前Map,构建MapPoints ———— initial时使用
+    MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF);       // 给定位姿，当前Map，Frame，以及Mappoint在Frame中的索引，构建MapPoints ———— 双目，updateLastFrame()使用
 
     void SetWorldPos(const cv::Mat &Pos);
     cv::Mat GetWorldPos();
 
-    cv::Mat GetNormal();
-    KeyFrame* GetReferenceKeyFrame();
+    cv::Mat GetNormal();        // 获得本实例的平均观测方向
+    KeyFrame* GetReferenceKeyFrame();       // 获得本实例的参考关键帧  ？
 
-    std::map<KeyFrame*,size_t> GetObservations();
-    int Observations();
+    std::map<KeyFrame*,size_t> GetObservations();       // 获得观测到本实例的KF,以及相应keypoints的索引
+    int Observations();     // 获取本实例被观测到的次数 nObs
 
-    void AddObservation(KeyFrame* pKF,size_t idx);
-    void EraseObservation(KeyFrame* pKF);
+    void AddObservation(KeyFrame* pKF,size_t idx);      // 记录观测到本实例的指定的KF以及相应keypoints的索引到mObservations,增加观测数 nObs
+    void EraseObservation(KeyFrame* pKF);       // 擦除指定KF对本实例的观测记录，若本实例观测数少，将被清除
 
-    int GetIndexInKeyFrame(KeyFrame* pKF);
+    int GetIndexInKeyFrame(KeyFrame* pKF);      // 返回int，是本实例在指定KF中对应的KeyPoint的序号
     bool IsInKeyFrame(KeyFrame* pKF);
 
-    void SetBadFlag();
-    bool isBad();
+    void SetBadFlag();      // 置mbBad=True，并将所有观测到本实例的KF对本实例的观测记录删除，擦除MP的内存
+    bool isBad();       // 返回mbBad
 
-    void Replace(MapPoint* pMP);    
-    MapPoint* GetReplaced();
+    void Replace(MapPoint* pMP);
+    MapPoint* GetReplaced();        // 返回替代了本实例的MP————mpReplaced (Loop中替代)
 
-    void IncreaseVisible(int n=1);
-    void IncreaseFound(int n=1);
+    void IncreaseVisible(int n=1);      // 增加可见数的记录， mnvisible += n
+    void IncreaseFound(int n=1);        // 增加可以找到本实例的记录 Replace与Tracking中会使用
     float GetFoundRatio();
     inline int GetFound(){
         return mnFound;
@@ -78,15 +78,15 @@ public:
 
     float GetMinDistanceInvariance();
     float GetMaxDistanceInvariance();
-    int PredictScale(const float &currentDist, KeyFrame*pKF);
+    int PredictScale(const float &currentDist, KeyFrame*pKF);       // 根据给定深度和KeyFrame，估计对应KeyPoint在金字塔的层数
     int PredictScale(const float &currentDist, Frame* pF);
 
 public:
-    long unsigned int mnId;
+    long unsigned int mnId;     // 本实例的GlobalId ———— 所有创建过的MP中的Id
     static long unsigned int nNextId;
-    long int mnFirstKFid;
-    long int mnFirstFrame;
-    int nObs;
+    long int mnFirstKFid;       // 建立本实例的KF的Id ———— 第一个构建函数
+    long int mnFirstFrame;      // 建立本实例的FrameId ———— 第二个构建函数
+    int nObs;       // 本实例被观测的次数
 
     // Variables used by the tracking
     float mTrackProjX;
@@ -95,7 +95,7 @@ public:
     bool mbTrackInView;
     int mnTrackScaleLevel;
     float mTrackViewCos;
-    long unsigned int mnTrackReferenceForFrame;
+    long unsigned int mnTrackReferenceForFrame;     // 防止将本实例重复添加到mvpLocalMap的标记（记录FrameId）
     long unsigned int mnLastFrameSeen;
 
     // Variables used by local mapping
