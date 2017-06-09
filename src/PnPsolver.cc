@@ -48,6 +48,42 @@
 *   either expressed or implied, of the FreeBSD Project
 */
 
+
+//这里的pnp求解用的是EPnP的算法。
+// 参考论文：EPnP:An Accurate O(n) Solution to the PnP problem
+// https://en.wikipedia.org/wiki/Perspective-n-Point
+// http://docs.ros.org/fuerte/api/re_vision/html/classepnp.html
+// 如果不理解，可以看看中文的："摄像机位姿的高精度快速求解" "摄像头位姿的加权线性算法"
+
+// PnP求解：已知世界坐标系下的3D点与图像坐标系对应的2D点，求解相机的外参(R t)，即从世界坐标系到相机坐标系的变换。
+// 而EPnP的思想是：
+// 将世界坐标系所有的3D点用四个虚拟的控制点来表示，将图像上对应的特征点转化为相机坐标系下的四个控制点
+// 根据世界坐标系下的四个控制点与相机坐标系下对应的四个控制点（与世界坐标系下四个控制点有相同尺度）即可恢复出(R t)
+
+
+//                                   |x|
+//   |u|   |fx r  u0||r11 r12 r13 t1||y|
+// s |v| = |0  fy v0||r21 r22 r23 t2||z|
+//   |1|   |0  0  1 ||r32 r32 r33 t3||1|
+
+// step1:用四个控制点来表达所有的3D点
+// p_w = sigma(alphas_j * pctrl_w_j), j从0到4
+// p_c = sigma(alphas_j * pctrl_c_j), j从0到4
+// sigma(alphas_j) = 1,  j从0到4
+
+// step2:根据针孔投影模型
+// s * u = K * sigma(alphas_j * pctrl_c_j), j从0到4
+
+// step3:将step2的式子展开, 消去s
+// sigma(alphas_j * fx * Xctrl_c_j) + alphas_j * (u0-u)*Zctrl_c_j = 0
+// sigma(alphas_j * fy * Xctrl_c_j) + alphas_j * (v0-u)*Zctrl_c_j = 0
+
+// step4:将step3中的12未知参数（4个控制点*3维参考点坐标）提成列向量
+// Mx = 0,计算得到初始的解x后可以用Gauss-Newton来提纯得到四个相机坐标系的控制点
+
+// step5:根据得到的p_w和对应的p_c，最小化重投影误差即可求解出R t
+
+
 #include <iostream>
 
 #include "PnPsolver.h"
