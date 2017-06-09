@@ -25,4 +25,4 @@ ORB-SLAM2 is released under a [GPLv3 license](https://github.com/raulmur/ORB_SLA
 
 For a closed-source version of ORB-SLAM2 for commercial purposes, please contact the authors: orbslam (at) unizar (dot) es.
 
-If you are going to run the ORB_SLAM2, you need download the source code from "https://github.com/raulmur/ORB_SLAM2", and then clone this repository to overwrite original file.
+If you are going to run the ORB_SLAM2, you need download the source code from "https://github.com/raulmur/ORB_SLAM2", and then clone this repository to overwrite original files.
