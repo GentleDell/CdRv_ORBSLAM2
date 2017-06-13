@@ -50,6 +50,8 @@ using namespace std;
 // 'l'表示list数据类型
 // "KF"表示KeyPoint数据类型
 
+// 整个ORB SLAM的坐标系是图像坐标，即前方为Z轴，右侧为X轴，下方为Y轴
+
 namespace ORB_SLAM2
 {
 
