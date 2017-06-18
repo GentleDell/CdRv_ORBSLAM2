@@ -435,7 +435,9 @@ void System::SaveTrajectoryKITTI(const string &filename)
     ofstream f;
     f.open(filename.c_str());
     f << fixed;
-
+    f << "Timestamp" << " " << "R11" << " " << "R12" << " " << "R13" << " " << "t1" << " " <<
+         "R21" << " " << "R22" << " " << "R23" << " " << "t2" << " " << "R31" << " " <<
+         "R32" << " " << "R33" << " " << "t3" << endl;
     // Frame pose is stored relative to its reference keyframe (which is optimized by BA and pose graph).
     // We need to get first the keyframe pose and then concatenate the relative transformation.
     // Frames not localized (tracking failure) are not saved.
@@ -457,13 +459,13 @@ void System::SaveTrajectoryKITTI(const string &filename)
             pKF = pKF->GetParent();
         }
 
-        Trw = Trw*pKF->GetPose()*Two;
+        Trw = Trw*pKF->GetPose()*Two;   // Trw 都重置
 
         cv::Mat Tcw = (*lit)*Trw;
         cv::Mat Rwc = Tcw.rowRange(0,3).colRange(0,3).t();
         cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3);
 
-        f << setprecision(9) << Rwc.at<float>(0,0) << " " << Rwc.at<float>(0,1)  << " " << Rwc.at<float>(0,2) << " "  << twc.at<float>(0) << " " <<
+        f << setprecision(9) << *lT << Rwc.at<float>(0,0) << " " << Rwc.at<float>(0,1)  << " " << Rwc.at<float>(0,2) << " "  << twc.at<float>(0) << " " <<
              Rwc.at<float>(1,0) << " " << Rwc.at<float>(1,1)  << " " << Rwc.at<float>(1,2) << " "  << twc.at<float>(1) << " " <<
              Rwc.at<float>(2,0) << " " << Rwc.at<float>(2,1)  << " " << Rwc.at<float>(2,2) << " "  << twc.at<float>(2) << endl;
     }
